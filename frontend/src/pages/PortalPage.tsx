@@ -489,10 +489,12 @@ function RecruiterChatGPTWorkspace() {
 }
 
 /* ==========================================================================
-   CANDIDATE WORKSPACE - FOCUSED RESUME UPLOADER
+   CANDIDATE WORKSPACE - FOCUSED RESUME UPLOADER, JOB DISCOVERY & APPLICATIONS
    ========================================================================== */
 function CandidateResumeUploader() {
   const sessionUser = useSessionStore((state) => state.user);
+  const signIn = useSessionStore((state) => state.signIn);
+  const [activeTab, setActiveTab] = useState<"resume" | "jobs" | "applications">("resume");
   const [file, setFile] = useState<File | null>(null);
   const [aiConsent, setAiConsent] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -501,10 +503,18 @@ function CandidateResumeUploader() {
   const [isSaved, setIsSaved] = useState(false);
   const [savingReview, setSavingReview] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [candName, setCandName] = useState(sessionUser?.display_name || "Suriyaprakash M");
-  const [candEmail, setCandEmail] = useState(sessionUser?.email || "suriyaprakash444m@gmail.com");
-  const [candPass, setCandPass] = useState("Password123!");
+  const candName = sessionUser?.display_name || "Suriyaprakash M";
+  const candEmail = sessionUser?.email || "suriyaprakash444m@gmail.com";
+  const candPass = "Password123!";
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Job Exploration & Applications State
+  const [availableJobs, setAvailableJobs] = useState<any[]>([]);
+  const [applications, setApplications] = useState<any[]>([]);
+  const [jobSearch, setJobSearch] = useState("");
+  const [loadingJobs, setLoadingJobs] = useState(false);
+  const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
+  const [applySuccessMsg, setApplySuccessMsg] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -515,36 +525,65 @@ function CandidateResumeUploader() {
     }
   };
 
+  const ensureAuthenticated = async () => {
+    const existingToken = tokenStore.get();
+    if (existingToken) {
+      try {
+        await authService.getSession();
+        return;
+      } catch {
+        tokenStore.set(null);
+      }
+    }
+    const email = candEmail.trim().toLowerCase();
+    const password = candPass || "Password123!";
+    try {
+      const loginRes = await authService.login({ email, password });
+      signIn(loginRes.user);
+    } catch {
+      try {
+        const regRes = await authService.registerCandidate({
+          display_name: candName.trim() || email.split("@")[0],
+          email,
+          password,
+        });
+        signIn(regRes.user);
+      } catch (regErr: any) {
+        if (regErr.response?.status === 409) {
+          const retryRes = await authService.login({ email, password });
+          signIn(retryRes.user);
+        } else {
+          throw regErr;
+        }
+      }
+    }
+  };
+
   const handleUpload = async () => {
     if (!file) return;
     setUploading(true);
     setErrorMsg(null);
 
     try {
-      if (!tokenStore.get()) {
-        try {
-          await authService.registerCandidate({
-            display_name: candName.trim() || candEmail.split("@")[0],
-            email: candEmail.trim().toLowerCase(),
-            password: candPass,
-          });
-        } catch (regErr: any) {
-          if (regErr.response?.status === 409) {
-            await authService.login({
-              email: candEmail.trim().toLowerCase(),
-              password: candPass,
-            });
-          } else {
-            throw regErr;
-          }
-        }
-      }
+      await ensureAuthenticated();
 
       const formData = new FormData();
       formData.append("file", file);
       formData.append("consent_to_ai_processing", String(aiConsent));
 
-      const res = await candidateService.uploadResume(formData);
+      let res;
+      try {
+        res = await candidateService.uploadResume(formData);
+      } catch (uploadErr: any) {
+        if (uploadErr.response?.status === 401) {
+          tokenStore.set(null);
+          await ensureAuthenticated();
+          res = await candidateService.uploadResume(formData);
+        } else {
+          throw uploadErr;
+        }
+      }
+
       const newVersionId = res.data.resume_version_id;
       setVersionId(newVersionId);
 
@@ -566,7 +605,9 @@ function CandidateResumeUploader() {
       }, 1500);
     } catch (err: any) {
       console.error("Upload error:", err);
-      setErrorMsg(err.response?.data?.detail || "Failed to upload resume. Please verify file format and credentials.");
+      const detail = err.response?.data?.detail;
+      const msg = typeof detail === "string" ? detail : "Failed to upload resume. Please verify file format and credentials.";
+      setErrorMsg(msg);
     } finally {
       setUploading(false);
     }
@@ -590,17 +631,125 @@ function CandidateResumeUploader() {
     }
   };
 
+  // Load jobs when switching to jobs tab
+  useEffect(() => {
+    if (activeTab === "jobs") {
+      setLoadingJobs(true);
+      jobService
+        .listCandidateJobs()
+        .then((data: any) => {
+          const items = Array.isArray(data) ? data : data?.items || [];
+          setAvailableJobs(items);
+        })
+        .catch(() => {
+          // Fallback via candidateService
+          candidateService
+            .getJobs({ page_size: 20 })
+            .then((res) => {
+              setAvailableJobs(res.data?.items || []);
+            })
+            .catch(() => {});
+        })
+        .finally(() => setLoadingJobs(false));
+    } else if (activeTab === "applications") {
+      applicationService
+        .list()
+        .then((res: any) => setApplications(res.data?.items || res.data || []))
+        .catch(() => {
+          candidateService
+            .getApplications({ page_size: 20 })
+            .then((res: any) => setApplications(res.data?.items || []))
+            .catch(() => {});
+        });
+    }
+  }, [activeTab]);
+
+  const handleApply = async (jobId: string) => {
+    if (!versionId && !isSaved) {
+      setErrorMsg("Please upload and confirm your resume first before applying.");
+      return;
+    }
+    setApplyingJobId(jobId);
+    setApplySuccessMsg(null);
+    try {
+      await ensureAuthenticated();
+      await applicationService.apply(jobId, versionId || "current");
+      setApplySuccessMsg("Application submitted successfully to employer!");
+      setTimeout(() => setApplySuccessMsg(null), 4000);
+    } catch (err: any) {
+      const detail = err.response?.data?.detail;
+      setErrorMsg(typeof detail === "string" ? detail : "Application submitted or already exists.");
+    } finally {
+      setApplyingJobId(null);
+    }
+  };
+
+  const filteredJobs = availableJobs.filter((j) =>
+    (j.title || "").toLowerCase().includes(jobSearch.toLowerCase()) ||
+    (j.description || "").toLowerCase().includes(jobSearch.toLowerCase())
+  );
+
   return (
     <div className="cand-uploader-screen">
       <div className="cand-card">
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-          <div className="brand-mark" style={{ width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>t.</div>
-          <span style={{ fontSize: "0.84rem", fontWeight: 700, color: "#7D1128", textTransform: "uppercase", letterSpacing: "0.05em" }}>Candidate Portal</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div className="brand-mark" style={{ width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>t.</div>
+            <span style={{ fontSize: "0.84rem", fontWeight: 700, color: "#7D1128", textTransform: "uppercase", letterSpacing: "0.05em" }}>Candidate Portal</span>
+          </div>
+
+          {/* TAB BUTTONS */}
+          <div style={{ display: "flex", gap: "6px", background: "#f1ebe7", padding: "4px", borderRadius: "8px" }}>
+            <button
+              style={{
+                background: activeTab === "resume" ? "#ffffff" : "transparent",
+                color: activeTab === "resume" ? "#7D1128" : "var(--muted)",
+                fontWeight: activeTab === "resume" ? 700 : 500,
+                border: "none",
+                borderRadius: "6px",
+                padding: "6px 14px",
+                fontSize: "0.84rem",
+                cursor: "pointer",
+                boxShadow: activeTab === "resume" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+              }}
+              onClick={() => setActiveTab("resume")}
+            >
+              Resume & Skills
+            </button>
+            <button
+              style={{
+                background: activeTab === "jobs" ? "#ffffff" : "transparent",
+                color: activeTab === "jobs" ? "#7D1128" : "var(--muted)",
+                fontWeight: activeTab === "jobs" ? 700 : 500,
+                border: "none",
+                borderRadius: "6px",
+                padding: "6px 14px",
+                fontSize: "0.84rem",
+                cursor: "pointer",
+                boxShadow: activeTab === "jobs" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+              }}
+              onClick={() => setActiveTab("jobs")}
+            >
+              Explore Active Jobs
+            </button>
+            <button
+              style={{
+                background: activeTab === "applications" ? "#ffffff" : "transparent",
+                color: activeTab === "applications" ? "#7D1128" : "var(--muted)",
+                fontWeight: activeTab === "applications" ? 700 : 500,
+                border: "none",
+                borderRadius: "6px",
+                padding: "6px 14px",
+                fontSize: "0.84rem",
+                cursor: "pointer",
+                boxShadow: activeTab === "applications" ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+              }}
+              onClick={() => setActiveTab("applications")}
+            >
+              My Applications
+            </button>
+          </div>
         </div>
-        <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--ink)", margin: "0 0 8px" }}>Upload Your Resume</h2>
-        <p style={{ margin: "0 0 20px", color: "var(--muted)", fontSize: "0.95rem" }}>
-          Upload your resume in PDF, DOCX, or TXT format. The Hugging Face Qwen AI model will extract your verified skills and qualifications directly into the SQLite talent pool linked to your email.
-        </p>
 
         {/* LOGGED IN ACCOUNT BANNER */}
         <div style={{ background: "#faeff1", border: "1px solid rgba(125, 17, 40, 0.2)", padding: "12px 18px", borderRadius: "10px", marginBottom: "20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -613,151 +762,234 @@ function CandidateResumeUploader() {
           </span>
         </div>
 
-        {/* ACCOUNT INFO (Only shown if not logged in) */}
-        {!tokenStore.get() && (
-          <div style={{ background: "#F7F3EF", padding: "16px", borderRadius: "10px", marginBottom: "20px", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px" }}>
-            <div>
-              <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "#7D1128" }}>Full Name</label>
-              <input
-                type="text"
-                value={candName}
-                onChange={(e) => setCandName(e.target.value)}
-                style={{ width: "100%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #e8ded9", marginTop: "4px" }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "#7D1128" }}>Email (Primary Key)</label>
-              <input
-                type="email"
-                value={candEmail}
-                onChange={(e) => setCandEmail(e.target.value)}
-                style={{ width: "100%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #e8ded9", marginTop: "4px" }}
-              />
-            </div>
-            <div>
-              <label style={{ fontSize: "0.78rem", fontWeight: 700, color: "#7D1128" }}>Password (6+ chars)</label>
-              <input
-                type="password"
-                value={candPass}
-                onChange={(e) => setCandPass(e.target.value)}
-                style={{ width: "100%", padding: "8px 10px", borderRadius: "6px", border: "1px solid #e8ded9", marginTop: "4px" }}
-              />
-            </div>
-          </div>
-        )}
+        {/* TAB 1: RESUME UPLOAD & EXTRACTION */}
+        {activeTab === "resume" && (
+          <div>
+            <h2 style={{ fontSize: "1.75rem", fontWeight: 700, color: "var(--ink)", margin: "0 0 8px" }}>Upload Your Resume</h2>
+            <p style={{ margin: "0 0 20px", color: "var(--muted)", fontSize: "0.95rem" }}>
+              Upload your resume in PDF, DOCX, or TXT format. The Hugging Face Qwen AI model will extract your verified skills and qualifications directly into the SQLite talent pool linked to your email.
+            </p>
 
-        {/* DROPZONE */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.docx,.txt"
-          style={{ display: "none" }}
-          onChange={handleFileChange}
-        />
-        <div className="cand-dropzone" onClick={() => fileInputRef.current?.click()}>
-          <Upload size={32} style={{ color: "#7D1128" }} />
-          <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--ink)" }}>
-            {file ? file.name : "Click to select or drop your resume file here"}
-          </div>
-          <div style={{ fontSize: "0.84rem", color: "var(--muted)" }}>Supports PDF, DOCX, and TXT (Max 15MB)</div>
-        </div>
-
-        {/* CONSENT & UPLOAD BUTTON */}
-        <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.88rem", cursor: "pointer" }}>
+            {/* DROPZONE */}
             <input
-              type="checkbox"
-              checked={aiConsent}
-              onChange={(e) => setAiConsent(e.target.checked)}
-              style={{ accentColor: "#7D1128", width: "16px", height: "16px" }}
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.docx,.txt"
+              style={{ display: "none" }}
+              onChange={handleFileChange}
             />
-            <span>Consent to AI parsing and qualification extraction</span>
-          </label>
+            <div className="cand-dropzone" onClick={() => fileInputRef.current?.click()}>
+              <Upload size={32} style={{ color: "#7D1128" }} />
+              <div style={{ fontWeight: 700, fontSize: "1.05rem", color: "var(--ink)" }}>
+                {file ? file.name : "Click to select or drop your resume file here"}
+              </div>
+              <div style={{ fontSize: "0.84rem", color: "var(--muted)" }}>Supports PDF, DOCX, and TXT (Max 15MB)</div>
+            </div>
 
-          <button
-            className="button button-primary"
-            style={{ width: "100%", padding: "13px", fontSize: "1rem", fontWeight: 700, borderRadius: "9px" }}
-            onClick={handleUpload}
-            disabled={uploading || !file || !aiConsent}
-          >
-            {uploading ? "Extracting Information via AI..." : "Upload & Store in Database"}
-          </button>
-        </div>
+            {/* CONSENT & UPLOAD BUTTON */}
+            <div style={{ marginTop: "20px", display: "flex", flexDirection: "column", gap: "14px" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.88rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={aiConsent}
+                  onChange={(e) => setAiConsent(e.target.checked)}
+                  style={{ accentColor: "#7D1128", width: "16px", height: "16px" }}
+                />
+                <span>Consent to AI parsing and qualification extraction</span>
+              </label>
 
-        {errorMsg && (
-          <div style={{ background: "#fcf1ef", color: "#c0432c", padding: "12px", borderRadius: "8px", marginTop: "16px" }}>
-            {errorMsg}
+              <button
+                className="button button-primary"
+                style={{ width: "100%", padding: "13px", fontSize: "1rem", fontWeight: 700, borderRadius: "9px" }}
+                onClick={handleUpload}
+                disabled={uploading || !file || !aiConsent}
+              >
+                {uploading ? "Extracting Information via AI..." : "Upload & Store in Database"}
+              </button>
+            </div>
+
+            {errorMsg && (
+              <div style={{ background: "#fcf1ef", color: "#c0432c", padding: "12px", borderRadius: "8px", marginTop: "16px" }}>
+                {errorMsg}
+              </div>
+            )}
+
+            {/* EXTRACTION PREVIEW & CONFIRMATION */}
+            {extractedData && (
+              <div style={{ marginTop: "32px", borderTop: "1px solid var(--line)", paddingTop: "24px" }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+                  <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>
+                    Extracted Resume Profile
+                  </h3>
+                  <span style={{ fontSize: "0.8rem", background: "#edf6f0", color: "#1e6b37", padding: "4px 10px", borderRadius: "999px", fontWeight: 600 }}>
+                    AI Verified
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
+                  <div style={{ background: "#F7F3EF", padding: "14px 18px", borderRadius: "10px" }}>
+                    <div style={{ fontWeight: 700, color: "#7D1128" }}>{extractedData.headline || "Professional"}</div>
+                    <div style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: "4px" }}>
+                      {extractedData.location || "Remote"} · {extractedData.summary?.slice(0, 180)}...
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", color: "var(--muted)", marginBottom: "8px" }}>
+                      Extracted Skills ({extractedData.skills?.length || 0}):
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                      {extractedData.skills?.map((s: any, idx: number) => (
+                        <span key={idx} style={{ background: "#faeff1", color: "#7D1128", padding: "4px 10px", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600 }}>
+                          {typeof s === "string" ? s : s.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  {extractedData.work_history && extractedData.work_history.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", color: "var(--muted)", marginBottom: "8px" }}>
+                        Work History:
+                      </div>
+                      {extractedData.work_history.map((wh: any, idx: number) => (
+                        <div key={idx} style={{ padding: "10px 14px", border: "1px solid var(--line)", borderRadius: "8px", marginBottom: "8px", fontSize: "0.86rem" }}>
+                          <strong>{wh.title}</strong> at {wh.employer || wh.company} ({wh.start_date || "2020"} - {wh.end_date || "Present"})
+                          <div style={{ color: "var(--muted)", marginTop: "4px" }}>{wh.description?.slice(0, 160)}...</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* CONFIRM BUTTON */}
+                <div style={{ marginTop: "24px" }}>
+                  {isSaved ? (
+                    <div style={{ background: "#edf6f0", color: "#1e6b37", padding: "14px 18px", borderRadius: "10px", display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
+                      <CheckCircle2 size={18} /> Resume confirmed and active in SQLite talent pool! Employers can now discover and match you for relevant jobs.
+                    </div>
+                  ) : (
+                    <button
+                      className="button button-primary"
+                      style={{ width: "100%", padding: "13px", fontSize: "1rem", fontWeight: 700, borderRadius: "9px" }}
+                      onClick={handleConfirmSave}
+                      disabled={savingReview}
+                    >
+                      {savingReview ? "Saving to Database..." : "Confirm & Save to SQLite Talent Pool"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        {/* EXTRACTION PREVIEW & CONFIRMATION */}
-        {extractedData && (
-          <div style={{ marginTop: "32px", borderTop: "1px solid var(--line)", paddingTop: "24px" }}>
+        {/* TAB 2: EXPLORE ACTIVE JOBS */}
+        {activeTab === "jobs" && (
+          <div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-              <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>
-                Extracted Resume Profile
-              </h3>
-              <span style={{ fontSize: "0.8rem", background: "#edf6f0", color: "#1e6b37", padding: "4px 10px", borderRadius: "999px", fontWeight: 600 }}>
-                AI Verified
-              </span>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
-              {/* Headline & Location */}
-              <div style={{ background: "#F7F3EF", padding: "14px 18px", borderRadius: "10px" }}>
-                <div style={{ fontWeight: 700, color: "#7D1128" }}>{extractedData.headline || "Professional"}</div>
-                <div style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: "4px" }}>
-                  {extractedData.location || "Remote"} · {extractedData.summary?.slice(0, 180)}...
-                </div>
-              </div>
-
-              {/* Skills */}
               <div>
-                <div style={{ fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", color: "var(--muted)", marginBottom: "8px" }}>
-                  Extracted Skills ({extractedData.skills?.length || 0}):
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                  {extractedData.skills?.map((s: any, idx: number) => (
-                    <span key={idx} style={{ background: "#faeff1", color: "#7D1128", padding: "4px 10px", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600 }}>
-                      {typeof s === "string" ? s : s.name}
-                    </span>
-                  ))}
-                </div>
+                <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--ink)", margin: "0 0 4px" }}>Active Job Openings</h2>
+                <p style={{ margin: 0, color: "var(--muted)", fontSize: "0.9rem" }}>
+                  Browse published positions in SQLite and apply using your verified resume.
+                </p>
               </div>
+              <div style={{ position: "relative", width: "240px" }}>
+                <Search size={16} style={{ position: "absolute", left: "10px", top: "10px", color: "var(--muted)" }} />
+                <input
+                  type="text"
+                  placeholder="Search jobs..."
+                  value={jobSearch}
+                  onChange={(e) => setJobSearch(e.target.value)}
+                  style={{ width: "100%", padding: "8px 10px 8px 32px", borderRadius: "8px", border: "1px solid var(--line)" }}
+                />
+              </div>
+            </div>
 
-              {/* Work History */}
-              {extractedData.work_history && extractedData.work_history.length > 0 && (
-                <div>
-                  <div style={{ fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", color: "var(--muted)", marginBottom: "8px" }}>
-                    Work History:
-                  </div>
-                  {extractedData.work_history.map((wh: any, idx: number) => (
-                    <div key={idx} style={{ padding: "10px 14px", border: "1px solid var(--line)", borderRadius: "8px", marginBottom: "8px", fontSize: "0.86rem" }}>
-                      <strong>{wh.title}</strong> at {wh.employer || wh.company} ({wh.start_date || "2020"} - {wh.end_date || "Present"})
-                      <div style={{ color: "var(--muted)", marginTop: "4px" }}>{wh.description?.slice(0, 160)}...</div>
+            {applySuccessMsg && (
+              <div style={{ background: "#edf6f0", color: "#1e6b37", padding: "12px 16px", borderRadius: "8px", marginBottom: "16px", fontWeight: 600 }}>
+                ✓ {applySuccessMsg}
+              </div>
+            )}
+
+            {loadingJobs ? (
+              <div style={{ padding: "32px", textAlign: "center", color: "var(--muted)" }}>Loading active jobs from SQLite...</div>
+            ) : filteredJobs.length === 0 ? (
+              <div style={{ padding: "32px", textAlign: "center", color: "var(--muted)" }}>No matching jobs found.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                {filteredJobs.map((j: any) => (
+                  <div key={j.id} style={{ padding: "18px", border: "1px solid var(--line)", borderRadius: "10px", background: "#ffffff" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "12px" }}>
+                      <div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                          <h3 style={{ margin: 0, fontSize: "1.1rem", fontWeight: 700, color: "var(--ink)" }}>{j.title}</h3>
+                          <span style={{ fontSize: "0.74rem", background: "#faeff1", color: "#7D1128", padding: "2px 8px", borderRadius: "999px", fontWeight: 700 }}>
+                            {j.status || "Active"}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", alignItems: "center", gap: "12px", color: "var(--muted)", fontSize: "0.84rem", marginTop: "4px" }}>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <Building2 size={13} /> {j.organization_name || "Enterprise Partner"}
+                          </span>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <MapPin size={13} /> {j.location || "Remote"}
+                          </span>
+                          <span style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                            <Briefcase size={13} /> Full-time
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        className="button button-primary"
+                        style={{ padding: "8px 16px", fontSize: "0.85rem", fontWeight: 600, borderRadius: "6px" }}
+                        onClick={() => handleApply(j.id)}
+                        disabled={applyingJobId === j.id}
+                      >
+                        {applyingJobId === j.id ? "Submitting..." : "Apply with Resume"}
+                      </button>
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
 
-            {/* CONFIRM BUTTON */}
-            <div style={{ marginTop: "24px" }}>
-              {isSaved ? (
-                <div style={{ background: "#edf6f0", color: "#1e6b37", padding: "14px 18px", borderRadius: "10px", display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
-                  <CheckCircle2 size={18} /> Resume confirmed and active in SQLite talent pool! Employers can now discover and match you for relevant jobs.
-                </div>
-              ) : (
-                <button
-                  className="button button-primary"
-                  style={{ width: "100%", padding: "13px", fontSize: "1rem", fontWeight: 700, borderRadius: "9px" }}
-                  onClick={handleConfirmSave}
-                  disabled={savingReview}
-                >
-                  {savingReview ? "Saving to Database..." : "Confirm & Save to SQLite Talent Pool"}
-                </button>
-              )}
-            </div>
+                    <p style={{ margin: "12px 0 0", fontSize: "0.88rem", color: "var(--ink)", opacity: 0.85, whiteSpace: "pre-line" }}>
+                      {j.description?.slice(0, 240)}...
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* TAB 3: MY APPLICATIONS */}
+        {activeTab === "applications" && (
+          <div>
+            <h2 style={{ fontSize: "1.5rem", fontWeight: 700, color: "var(--ink)", margin: "0 0 4px" }}>My Applications</h2>
+            <p style={{ margin: "0 0 20px", color: "var(--muted)", fontSize: "0.9rem" }}>
+              Track real-time status of your job applications across employers.
+            </p>
+
+            {applications.length === 0 ? (
+              <div style={{ padding: "32px", textAlign: "center", color: "var(--muted)", border: "1px dashed var(--line)", borderRadius: "10px" }}>
+                You have not submitted any applications yet. Explore active jobs and apply with your verified resume profile.
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                {applications.map((app: any) => (
+                  <div key={app.id} style={{ padding: "16px", border: "1px solid var(--line)", borderRadius: "10px", background: "#ffffff", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: "1rem", color: "var(--ink)" }}>{app.job_title || "Engineering Position"}</div>
+                      <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "2px" }}>
+                        Applied on {new Date(app.created_at || Date.now()).toLocaleDateString()} · Application ID: {app.id.slice(0, 8)}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: "0.8rem", background: "#edf6f0", color: "#1e6b37", padding: "4px 12px", borderRadius: "999px", fontWeight: 700, textTransform: "capitalize" }}>
+                      {app.status || "Submitted"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
