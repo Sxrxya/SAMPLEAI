@@ -287,12 +287,12 @@ def update_processing_consent(
     return {"resume_version_id": version.id, "consent_to_ai_processing": payload.consent}
 
 
-@router.get("/{resume_version_id}/extracted", response_model=ResumeExtractionPayload)
+@router.get("/{resume_version_id}/extracted")
 def get_extraction(
     resume_version_id: str,
     candidate: User = Depends(require_roles("candidate")),
     db: Session = Depends(get_db),
-) -> ResumeExtractionPayload:
+) -> dict:
     version = _owned_version(db, candidate.id, resume_version_id)
     extraction = db.scalar(
         select(ResumeExtraction)
@@ -301,17 +301,17 @@ def get_extraction(
     )
     if extraction is None:
         raise HTTPException(status_code=409, detail="Resume extraction is not ready")
-    return ResumeExtractionPayload.model_validate(extraction.extraction_json)
+    return extraction.extraction_json
 
 
-@router.put("/{resume_version_id}/extracted", response_model=ResumeExtractionPayload)
+@router.put("/{resume_version_id}/extracted")
 def review_extraction(
     resume_version_id: str,
-    payload: ResumeReviewRequest,
+    payload: dict,
     candidate: User = Depends(require_roles("candidate")),
     db: Session = Depends(get_db),
-) -> ResumeExtractionPayload:
-    if not payload.confirmed:
+) -> dict:
+    if not payload.get("confirmed"):
         raise HTTPException(status_code=422, detail="Candidate confirmation is required")
     version = _owned_version(db, candidate.id, resume_version_id)
     extraction = db.scalar(
@@ -319,9 +319,12 @@ def review_extraction(
         .where(ResumeExtraction.resume_version_id == version.id)
         .order_by(ResumeExtraction.created_at.desc())
     )
-    if extraction is None or version.status != "needs_review":
+    if extraction is None:
         raise HTTPException(status_code=409, detail="Resume is not awaiting review")
-    extraction.extraction_json = payload.extraction.model_dump(mode="json")
+    if version.status == "complete":
+        return extraction.extraction_json
+    extraction_data = payload.get("extraction") or extraction.extraction_json
+    extraction.extraction_json = extraction_data
     extraction.review_status = "confirmed"
     version.status = "complete"
     db.add(

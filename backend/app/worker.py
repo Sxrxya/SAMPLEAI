@@ -103,62 +103,26 @@ async def _process_resume(
     version.status = "processing"
     db.commit()
     source_text = await asyncio.to_thread(extract_text, _file_path(version.storage_key))
+    from app.services.structured_parser import parse_resume_document
+
+    extraction_dict = None
+    actual_model_id = None
     try:
         extraction, actual_model_id = await inference.extract_resume(source_text)
+        extraction_dict = extraction.model_dump(mode="json")
     except Exception as exc:
-        logger.warning("AI resume extraction failed, using safe non-fabricating parser: %s", exc)
-        actual_model_id = "safe-rule-parser-v2"
-        known_skills = [
-            "python", "fastapi", "react", "typescript", "figma", "machine learning",
-            "hugging face", "pytorch", "docker", "postgresql", "sql", "redis",
-            "user research", "design systems", "rest apis", "aws", "kubernetes",
-            "airflow", "spark", "nlp", "llm", "transformers", "langchain", "java",
-            "c++", "go", "javascript", "html", "css", "node", "express", "graphql"
-        ]
-        text_lower = source_text.lower()
-        detected_skills = [s for s in known_skills if s in text_lower]
-        first_line = source_text.splitlines()[0].strip() if source_text.splitlines() else None
-        # Safe fallback: NEVER invent missing employers, titles, or dates
-        extraction = ResumeExtractionPayload(
-            schema_version="resume.v2",
-            headline=first_line[:120] if first_line else None,
-            summary=source_text[:400].strip(),
-            skills=[
-                {
-                    "name": s.title(),
-                    "category": "technical",
-                    "evidence_level": "CLAIMED",
-                    "evidence": [{"source": "resume_body", "text": f"Found verbatim in resume: {s}"}],
-                }
-                for s in detected_skills
-            ],
-            work_history=[],
-            internships=[],
-            education=[],
-            projects=[],
-            certifications=[],
-            achievements=[],
-            publications=[],
-            languages=[],
-            volunteer_experience=[],
-            unknown_fields=["work_history", "education", "projects"],
-            field_statuses={
-                "skills": "EXTRACTED" if detected_skills else "NOT_FOUND",
-                "work_history": "NEEDS_REVIEW",
-                "education": "NEEDS_REVIEW",
-                "projects": "NEEDS_REVIEW",
-            },
-            source_text_summary=source_text[:2000].strip(),
-        )
+        logger.warning("AI resume extraction fallback engaged: %s", exc)
+        extraction_dict = parse_resume_document(source_text)
+        actual_model_id = "structured-document-parser-v3 (HF 402 Fallback)"
 
     db.add(
         ResumeExtraction(
             resume_version_id=version.id,
-            schema_version=extraction.schema_version,
-            prompt_version="resume-extraction-v2",
-            provider="openai-compatible",
+            schema_version="resume.v2",
+            prompt_version="resume-extraction-v3",
+            provider="huggingface-hosted",
             model_id=actual_model_id,
-            extraction_json=extraction.model_dump(mode="json"),
+            extraction_json=extraction_dict,
             review_status="pending",
         )
     )

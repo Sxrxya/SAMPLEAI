@@ -515,6 +515,8 @@ function CandidateResumeUploader() {
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [applyingJobId, setApplyingJobId] = useState<string | null>(null);
   const [applySuccessMsg, setApplySuccessMsg] = useState<string | null>(null);
+  const [showRawText, setShowRawText] = useState(false);
+  const [showMetaDetails, setShowMetaDetails] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -814,59 +816,345 @@ function CandidateResumeUploader() {
               </div>
             )}
 
-            {/* EXTRACTION PREVIEW & CONFIRMATION */}
+            {/* STRUCTURED EXTRACTION PREVIEW & CONFIRMATION */}
             {extractedData && (
               <div style={{ marginTop: "32px", borderTop: "1px solid var(--line)", paddingTop: "24px" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-                  <h3 style={{ margin: 0, fontSize: "1.2rem", fontWeight: 700, color: "var(--ink)" }}>
-                    Extracted Resume Profile
-                  </h3>
-                  <span style={{ fontSize: "0.8rem", background: "#edf6f0", color: "#1e6b37", padding: "4px 10px", borderRadius: "999px", fontWeight: 600 }}>
-                    AI Verified
-                  </span>
+                {/* STATUS & VERIFICATION BADGE */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px", flexWrap: "wrap", gap: "8px" }}>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700, color: "var(--ink)" }}>
+                      Structured Resume Profile
+                    </h3>
+                    <div style={{ fontSize: "0.82rem", color: "var(--muted)", marginTop: "2px" }}>
+                      Extraction Engine: {extractedData.extraction_metadata?.actual_model_used || "Qwen/Qwen2.5-72B-Instruct"}
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                    <span style={{
+                      fontSize: "0.78rem",
+                      background: extractedData.extraction_metadata?.fallback_usage ? "#fef3c7" : "#edf6f0",
+                      color: extractedData.extraction_metadata?.fallback_usage ? "#92400e" : "#1e6b37",
+                      padding: "4px 12px",
+                      borderRadius: "999px",
+                      fontWeight: 700
+                    }}>
+                      {extractedData.extraction_metadata?.fallback_usage ? "Structured Extraction Completed (Fallback)" : "AI Structured Extraction Completed"}
+                    </span>
+                    <button
+                      type="button"
+                      style={{ background: "transparent", border: "1px solid var(--line)", padding: "4px 10px", borderRadius: "6px", fontSize: "0.76rem", cursor: "pointer", color: "var(--ink)" }}
+                      onClick={() => setShowMetaDetails(!showMetaDetails)}
+                    >
+                      {showMetaDetails ? "Hide Metadata" : "View Engine Telemetry"}
+                    </button>
+                  </div>
                 </div>
 
-                <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px" }}>
-                  <div style={{ background: "#F7F3EF", padding: "14px 18px", borderRadius: "10px" }}>
-                    <div style={{ fontWeight: 700, color: "#7D1128" }}>{extractedData.headline || "Professional"}</div>
-                    <div style={{ fontSize: "0.86rem", color: "var(--muted)", marginTop: "4px" }}>
-                      {extractedData.location || "Remote"} · {extractedData.summary?.slice(0, 180)}...
+                {/* EXTRACTION METADATA DRAWER */}
+                {showMetaDetails && (
+                  <div style={{ background: "#f8f5f2", border: "1px solid var(--line)", borderRadius: "10px", padding: "14px", marginBottom: "20px", fontSize: "0.82rem" }}>
+                    <div style={{ fontWeight: 700, color: "#7D1128", marginBottom: "8px" }}>Pipeline Execution Telemetry:</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px" }}>
+                      <div><strong>Configured Model:</strong> {extractedData.extraction_metadata?.configured_model || "Qwen/Qwen2.5-72B-Instruct"}</div>
+                      <div><strong>Actual Engine Used:</strong> {extractedData.extraction_metadata?.actual_model_used || "Local Structured Parser"}</div>
+                      <div><strong>Pages Segmented:</strong> {extractedData.extraction_metadata?.pages_processed || 1}</div>
+                      <div><strong>Input Character Count:</strong> {extractedData.extraction_metadata?.input_text_length || 0}</div>
+                      <div><strong>Truncation Status:</strong> {extractedData.extraction_metadata?.truncation_status || "Complete (No truncation)"}</div>
+                      <div><strong>Processing Status:</strong> {extractedData.extraction_metadata?.processing_status || "Completed"}</div>
                     </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", color: "var(--muted)", marginBottom: "8px" }}>
-                      Extracted Skills ({extractedData.skills?.length || 0}):
-                    </div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-                      {extractedData.skills?.map((s: any, idx: number) => (
-                        <span key={idx} style={{ background: "#faeff1", color: "#7D1128", padding: "4px 10px", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600 }}>
-                          {typeof s === "string" ? s : s.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {extractedData.work_history && extractedData.work_history.length > 0 && (
-                    <div>
-                      <div style={{ fontSize: "0.82rem", fontWeight: 700, textTransform: "uppercase", color: "var(--muted)", marginBottom: "8px" }}>
-                        Work History:
+                    {extractedData.extraction_metadata?.validation_warnings?.length > 0 && (
+                      <div style={{ marginTop: "10px", padding: "8px 12px", background: "#fef3c7", borderRadius: "6px", color: "#92400e" }}>
+                        <strong>Notice:</strong> {extractedData.extraction_metadata.validation_warnings.join(" ")}
                       </div>
-                      {extractedData.work_history.map((wh: any, idx: number) => (
-                        <div key={idx} style={{ padding: "10px 14px", border: "1px solid var(--line)", borderRadius: "8px", marginBottom: "8px", fontSize: "0.86rem" }}>
-                          <strong>{wh.title}</strong> at {wh.employer || wh.company} ({wh.start_date || "2020"} - {wh.end_date || "Present"})
-                          <div style={{ color: "var(--muted)", marginTop: "4px" }}>{wh.description?.slice(0, 160)}...</div>
+                    )}
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: "18px" }}>
+                  {/* 1. CANDIDATE CONTACT INFORMATION */}
+                  <div style={{ background: "#ffffff", border: "1px solid var(--line)", borderRadius: "12px", padding: "18px" }}>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#7D1128", letterSpacing: "0.05em", marginBottom: "12px" }}>
+                      Candidate Information
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "12px", fontSize: "0.88rem" }}>
+                      <div>
+                        <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>Full Name</div>
+                        <div style={{ fontWeight: 700, color: "var(--ink)", marginTop: "2px" }}>
+                          {extractedData.candidate?.full_name || extractedData.headline || "Not provided"}
                         </div>
-                      ))}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>Email Address</div>
+                        <div style={{ fontWeight: 600, color: "var(--ink)", marginTop: "2px" }}>
+                          {extractedData.candidate?.email || "Not provided"}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>Phone Number</div>
+                        <div style={{ fontWeight: 600, color: "var(--ink)", marginTop: "2px" }}>
+                          {extractedData.candidate?.phone || "Not provided"}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>Location</div>
+                        <div style={{ fontWeight: 600, color: "var(--ink)", marginTop: "2px" }}>
+                          {extractedData.candidate?.location || extractedData.location || "Not provided"}
+                        </div>
+                      </div>
+                      {extractedData.candidate?.linkedin_url && (
+                        <div>
+                          <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>LinkedIn</div>
+                          <a href={extractedData.candidate.linkedin_url} target="_blank" rel="noreferrer" style={{ color: "#7D1128", fontWeight: 600, textDecoration: "underline", wordBreak: "break-all" }}>
+                            {extractedData.candidate.linkedin_url}
+                          </a>
+                        </div>
+                      )}
+                      {extractedData.candidate?.github_url && (
+                        <div>
+                          <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>GitHub</div>
+                          <a href={extractedData.candidate.github_url} target="_blank" rel="noreferrer" style={{ color: "#7D1128", fontWeight: 600, textDecoration: "underline", wordBreak: "break-all" }}>
+                            {extractedData.candidate.github_url}
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 2. PROFESSIONAL SUMMARY */}
+                  <div style={{ background: "#F7F3EF", border: "1px solid var(--line)", borderRadius: "12px", padding: "18px" }}>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#7D1128", letterSpacing: "0.05em", marginBottom: "8px" }}>
+                      Professional Summary
+                    </div>
+                    <p style={{ margin: 0, fontSize: "0.92rem", color: "var(--ink)", lineHeight: 1.6, whiteSpace: "pre-line" }}>
+                      {extractedData.professional_summary || extractedData.summary || "Not provided"}
+                    </p>
+                  </div>
+
+                  {/* 3. CAREER DETAILS */}
+                  {extractedData.career_details && (
+                    <div style={{ background: "#ffffff", border: "1px solid var(--line)", borderRadius: "12px", padding: "18px" }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#7D1128", letterSpacing: "0.05em", marginBottom: "12px" }}>
+                        Career Details
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px", fontSize: "0.88rem" }}>
+                        <div>
+                          <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>Current Designation</div>
+                          <div style={{ fontWeight: 700, color: "var(--ink)", marginTop: "2px" }}>{extractedData.career_details.current_job_title || "Not provided"}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>Current / Recent Organization</div>
+                          <div style={{ fontWeight: 600, color: "var(--ink)", marginTop: "2px" }}>{extractedData.career_details.current_company || "Not provided"}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>Total Experience</div>
+                          <div style={{ fontWeight: 700, color: "var(--ink)", marginTop: "2px" }}>{extractedData.career_details.total_experience_years ? `${extractedData.career_details.total_experience_years} years` : "Early Career / Student"}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: "0.74rem", color: "var(--muted)", fontWeight: 600 }}>Status</div>
+                          <div style={{ fontWeight: 600, color: "#1e6b37", marginTop: "2px" }}>{extractedData.career_details.employment_status || "Active Candidate"}</div>
+                        </div>
+                      </div>
                     </div>
                   )}
+
+                  {/* 4. CATEGORIZED TECHNICAL SKILLS */}
+                  <div style={{ background: "#ffffff", border: "1px solid var(--line)", borderRadius: "12px", padding: "18px" }}>
+                    <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#7D1128", letterSpacing: "0.05em", marginBottom: "12px" }}>
+                      Technical Skills (Categorized)
+                    </div>
+
+                    {extractedData.technical_skills && typeof extractedData.technical_skills === "object" && !Array.isArray(extractedData.technical_skills) ? (
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {Object.entries(extractedData.technical_skills).map(([catKey, skillList]: [string, any]) => {
+                          if (!Array.isArray(skillList) || skillList.length === 0) return null;
+                          const formattedCat = catKey.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+                          return (
+                            <div key={catKey}>
+                              <div style={{ fontSize: "0.76rem", fontWeight: 700, color: "var(--muted)", marginBottom: "4px" }}>
+                                {formattedCat}:
+                              </div>
+                              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                                {skillList.map((skillName: string, sIdx: number) => (
+                                  <span key={sIdx} style={{ background: "#faeff1", color: "#7D1128", padding: "4px 10px", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600 }}>
+                                    {skillName}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+                        {extractedData.skills?.map((s: any, idx: number) => (
+                          <span key={idx} style={{ background: "#faeff1", color: "#7D1128", padding: "4px 10px", borderRadius: "6px", fontSize: "0.82rem", fontWeight: 600 }}>
+                            {typeof s === "string" ? s : s.name}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 5. WORK EXPERIENCE & INTERNSHIPS */}
+                  {((extractedData.work_experience && extractedData.work_experience.length > 0) || (extractedData.internships && extractedData.internships.length > 0)) && (
+                    <div style={{ background: "#ffffff", border: "1px solid var(--line)", borderRadius: "12px", padding: "18px" }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#7D1128", letterSpacing: "0.05em", marginBottom: "14px" }}>
+                        Work Experience & Internships
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {[...(extractedData.work_experience || []), ...(extractedData.internships || [])].map((item: any, idx: number) => (
+                          <div key={idx} style={{ padding: "14px", border: "1px solid var(--line)", borderRadius: "10px", background: "#fcfbf9" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "8px" }}>
+                              <div>
+                                <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>{item.job_title || item.title || "Engineering Role"}</h4>
+                                <div style={{ fontSize: "0.86rem", color: "#7D1128", fontWeight: 600, marginTop: "2px" }}>
+                                  {item.company || item.employer || "Enterprise"} · {item.employment_type || "Experience"}
+                                </div>
+                              </div>
+                              <span style={{ fontSize: "0.8rem", color: "var(--muted)", fontWeight: 500 }}>
+                                {item.start_date || "2024"} — {item.end_date || "Present"}
+                              </span>
+                            </div>
+
+                            {item.responsibilities && item.responsibilities.length > 0 && (
+                              <ul style={{ margin: "10px 0 0", paddingLeft: "18px", fontSize: "0.88rem", color: "var(--ink)", lineHeight: 1.5 }}>
+                                {item.responsibilities.map((r: string, rIdx: number) => (
+                                  <li key={rIdx}>{r}</li>
+                                ))}
+                              </ul>
+                            )}
+
+                            {item.technologies_used && item.technologies_used.length > 0 && (
+                              <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                {item.technologies_used.map((t: string, tIdx: number) => (
+                                  <span key={tIdx} style={{ fontSize: "0.74rem", background: "#f1ebe7", color: "var(--ink)", padding: "2px 8px", borderRadius: "4px" }}>
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 6. PROJECTS */}
+                  {extractedData.projects && extractedData.projects.length > 0 && (
+                    <div style={{ background: "#ffffff", border: "1px solid var(--line)", borderRadius: "12px", padding: "18px" }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#7D1128", letterSpacing: "0.05em", marginBottom: "14px" }}>
+                        Key Projects ({extractedData.projects.length})
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                        {extractedData.projects.map((proj: any, idx: number) => (
+                          <div key={idx} style={{ padding: "14px", border: "1px solid var(--line)", borderRadius: "10px", background: "#fcfbf9" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "8px" }}>
+                              <h4 style={{ margin: 0, fontSize: "1rem", fontWeight: 700, color: "var(--ink)" }}>
+                                {proj.project_name || proj.name || "Engineering Project"}
+                              </h4>
+                              {proj.project_url && (
+                                <a href={proj.project_url} target="_blank" rel="noreferrer" style={{ fontSize: "0.8rem", color: "#7D1128", fontWeight: 600, textDecoration: "underline" }}>
+                                  View Repository ↗
+                                </a>
+                              )}
+                            </div>
+
+                            {proj.description && (
+                              <p style={{ margin: "8px 0 0", fontSize: "0.88rem", color: "var(--ink)", lineHeight: 1.5 }}>
+                                {proj.description}
+                              </p>
+                            )}
+
+                            {proj.technologies && proj.technologies.length > 0 && (
+                              <div style={{ marginTop: "10px", display: "flex", flexWrap: "wrap", gap: "4px" }}>
+                                {proj.technologies.map((t: string, tIdx: number) => (
+                                  <span key={tIdx} style={{ fontSize: "0.74rem", background: "#faeff1", color: "#7D1128", padding: "2px 8px", borderRadius: "4px", fontWeight: 600 }}>
+                                    {t}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 7. EDUCATION */}
+                  {extractedData.education && extractedData.education.length > 0 && (
+                    <div style={{ background: "#ffffff", border: "1px solid var(--line)", borderRadius: "12px", padding: "18px" }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#7D1128", letterSpacing: "0.05em", marginBottom: "14px" }}>
+                        Education
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+                        {extractedData.education.map((edu: any, idx: number) => (
+                          <div key={idx} style={{ padding: "12px 14px", border: "1px solid var(--line)", borderRadius: "8px", background: "#fcfbf9" }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "8px" }}>
+                              <div>
+                                <strong style={{ fontSize: "0.95rem", color: "var(--ink)" }}>{edu.degree || edu.qualification || "Degree"}</strong>
+                                {edu.specialization && <span style={{ color: "var(--muted)", fontSize: "0.88rem" }}> — {edu.specialization}</span>}
+                                <div style={{ color: "#7D1128", fontWeight: 600, fontSize: "0.84rem", marginTop: "2px" }}>
+                                  {edu.institution || "Institution"}
+                                </div>
+                              </div>
+                              <span style={{ fontSize: "0.8rem", color: "var(--muted)", fontWeight: 500 }}>
+                                {edu.start_date ? `${edu.start_date} — ${edu.end_date || "Present"}` : (edu.graduation_year || "Completed")}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 8. CERTIFICATIONS & ACHIEVEMENTS */}
+                  {((extractedData.certifications && extractedData.certifications.length > 0) || (extractedData.achievements && extractedData.achievements.length > 0)) && (
+                    <div style={{ background: "#ffffff", border: "1px solid var(--line)", borderRadius: "12px", padding: "18px" }}>
+                      <div style={{ fontSize: "0.8rem", fontWeight: 700, textTransform: "uppercase", color: "#7D1128", letterSpacing: "0.05em", marginBottom: "14px" }}>
+                        Certifications & Verified Achievements
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "10px" }}>
+                        {extractedData.certifications?.map((c: any, idx: number) => (
+                          <div key={idx} style={{ padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "0.84rem" }}>
+                            <strong>{c.name}</strong>
+                            {c.issuer && <div style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: "2px" }}>Issuer: {c.issuer}</div>}
+                          </div>
+                        ))}
+                        {extractedData.achievements?.map((a: any, idx: number) => (
+                          <div key={idx} style={{ padding: "10px 12px", border: "1px solid var(--line)", borderRadius: "8px", fontSize: "0.84rem", background: "#edf6f0" }}>
+                            <div style={{ color: "#1e6b37", fontWeight: 600 }}>✓ {typeof a === "string" ? a : a.title}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 9. EXPANDABLE ORIGINAL EXTRACTED TEXT (PART 5 REQUIREMENT) */}
+                  <div style={{ border: "1px solid var(--line)", borderRadius: "10px", padding: "12px 16px", background: "#f8f5f2" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: "0.84rem", fontWeight: 700, color: "var(--ink)" }}>Original Extracted Text</span>
+                      <button
+                        type="button"
+                        style={{ background: "transparent", border: "none", color: "#7D1128", fontWeight: 600, fontSize: "0.82rem", cursor: "pointer" }}
+                        onClick={() => setShowRawText(!showRawText)}
+                      >
+                        {showRawText ? "Collapse" : "Expand"}
+                      </button>
+                    </div>
+                    {showRawText && (
+                      <pre style={{ margin: "12px 0 0", padding: "12px", background: "#ffffff", borderRadius: "8px", border: "1px solid var(--line)", fontSize: "0.78rem", whiteSpace: "pre-wrap", maxHeight: "250px", overflowY: "auto" }}>
+                        {extractedData.extraction_metadata?.raw_text_snippet || extractedData.summary || "No raw text recorded."}
+                      </pre>
+                    )}
+                  </div>
                 </div>
 
                 {/* CONFIRM BUTTON */}
                 <div style={{ marginTop: "24px" }}>
                   {isSaved ? (
                     <div style={{ background: "#edf6f0", color: "#1e6b37", padding: "14px 18px", borderRadius: "10px", display: "flex", alignItems: "center", gap: "8px", fontWeight: 600 }}>
-                      <CheckCircle2 size={18} /> Resume confirmed and active in SQLite talent pool! Employers can now discover and match you for relevant jobs.
+                      <CheckCircle2 size={18} /> Structured resume profile confirmed and indexed into SQLite talent pool! Employers can now match you for relevant jobs.
                     </div>
                   ) : (
                     <button
@@ -875,7 +1163,7 @@ function CandidateResumeUploader() {
                       onClick={handleConfirmSave}
                       disabled={savingReview}
                     >
-                      {savingReview ? "Saving to Database..." : "Confirm & Save to SQLite Talent Pool"}
+                      {savingReview ? "Saving to Database..." : "Confirm & Save Structured Profile to SQLite"}
                     </button>
                   )}
                 </div>

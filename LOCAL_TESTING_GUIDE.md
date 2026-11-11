@@ -149,3 +149,4 @@ $env:PYTHONPATH = "backend"
 # Verify frontend production build
 npm --prefix frontend run build
 ```
+
