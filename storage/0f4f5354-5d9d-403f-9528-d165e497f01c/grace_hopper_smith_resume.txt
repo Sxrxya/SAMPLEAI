@@ -1,0 +1,21 @@
+Grace Hopper-Smith
+Backend Engineer · 3 yrs exp | San Francisco, CA
+Contact: grace.hoppersmith@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Grace Hopper-Smith is an experienced specialist with a background in: Python, FastAPI, PostgreSQL, Docker, Machine Learning.
+
+=== TECHNICAL SKILLS ===
+Python, FastAPI, PostgreSQL, Docker, Machine Learning
+
+=== WORK EXPERIENCE ===
+Backend Software Developer at DataWorks Tech (2021 - Present)
+Developed backend REST APIs using Python and FastAPI with PostgreSQL databases.
+
+=== PROJECTS ===
+Project: High-Performance REST Gateway
+Skills: Python, FastAPI, PostgreSQL
+FastAPI and Python backend system connecting to PostgreSQL.
+
+=== EDUCATION ===
+Education details available upon request.

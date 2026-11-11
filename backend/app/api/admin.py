@@ -4,11 +4,29 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.security import require_roles
-from app.models import AuditEvent, Organization, ProcessingJob, User, utc_now
+from app.models import AuditEvent, Organization, ProcessingJob, User, Job, Resume, utc_now
 from app.schemas import VerificationDecision
 from app.services.queue import requeue_dead_letter
 
 router = APIRouter(prefix="/admin", tags=["administration"])
+
+
+@router.get("/metrics")
+def get_admin_metrics(
+    admin: User = Depends(require_roles("admin")),
+    db: Session = Depends(get_db),
+) -> dict:
+    del admin
+    candidates_count = db.scalar(select(func.count(User.id)).where(User.role == "candidate")) or 0
+    orgs_count = db.scalar(select(func.count(Organization.id))) or 0
+    jobs_count = db.scalar(select(func.count(Job.id))) or 0
+    resumes_count = db.scalar(select(func.count(Resume.id))) or 0
+    return {
+        "candidates": candidates_count,
+        "recruiters": orgs_count,
+        "jobs": jobs_count,
+        "resumes": resumes_count,
+    }
 
 
 @router.get("/processing/jobs")

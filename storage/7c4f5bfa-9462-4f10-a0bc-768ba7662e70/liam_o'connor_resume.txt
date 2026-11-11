@@ -1,0 +1,21 @@
+Liam O'Connor
+Senior Interaction Designer · 4 yrs exp | New York, NY
+Contact: liam.oconnor@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Liam O'Connor is an experienced specialist with a background in: Figma, Design Systems, Prototyping, User Research, Accessibility, UI/UX.
+
+=== TECHNICAL SKILLS ===
+Figma, Design Systems, Prototyping, User Research, Accessibility, UI/UX
+
+=== WORK EXPERIENCE ===
+Senior UX Designer at Elevate Studio (2020 - Present)
+Designed product interfaces in Figma, built prototypes, and maintained component libraries.
+
+=== PROJECTS ===
+Project: SaaS Design System 2.0
+Skills: Figma, Design Systems, Prototyping
+Figma interactive design system and responsive prototypes.
+
+=== EDUCATION ===
+B.S. in Industrial Design from Pratt Institute

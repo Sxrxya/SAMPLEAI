@@ -1,0 +1,21 @@
+Vikram Malhotra
+DevOps & Cloud Engineer · 4 yrs exp | Boston, MA
+Contact: vikram.malhotra@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Vikram Malhotra is an experienced specialist with a background in: Docker, Kubernetes, Python, Microservices, Redis, PostgreSQL, AWS.
+
+=== TECHNICAL SKILLS ===
+Docker, Kubernetes, Python, Microservices, Redis, PostgreSQL, AWS
+
+=== WORK EXPERIENCE ===
+DevOps Engineer at InfraCore Cloud (2020 - Present)
+Deployed microservices on Kubernetes using Docker, Python, and AWS.
+
+=== PROJECTS ===
+Project: Automated Kubernetes Pipeline
+Skills: Docker, Kubernetes, Python
+Zero-downtime deployment pipeline for Docker microservices on Kubernetes.
+
+=== EDUCATION ===
+B.S. in Electrical & Computer Engineering from Purdue University

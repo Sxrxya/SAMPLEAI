@@ -1,0 +1,21 @@
+Maya Lin
+Front-End UI Engineer (React/TypeScript/Figma) · 3 yrs exp | New York, NY
+Contact: maya.lin@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Maya Lin is an experienced specialist with a background in: React, TypeScript, Figma, Tailwind CSS, Accessibility, Design Systems.
+
+=== TECHNICAL SKILLS ===
+React, TypeScript, Figma, Tailwind CSS, Accessibility, Design Systems
+
+=== WORK EXPERIENCE ===
+UI Engineer at Kite Creative Tech (2021 - Present)
+Implemented accessible React and TypeScript UI components matching Figma design specs.
+
+=== PROJECTS ===
+Project: Accessible Component Library
+Skills: React, TypeScript, Tailwind CSS, Accessibility
+React and TypeScript component library with Tailwind CSS and full WCAG compliance.
+
+=== EDUCATION ===
+B.S. in Digital Media from NYU

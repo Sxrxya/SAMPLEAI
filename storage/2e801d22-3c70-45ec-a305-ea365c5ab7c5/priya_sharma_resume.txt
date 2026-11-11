@@ -1,0 +1,21 @@
+Priya Sharma
+Full Stack Engineer (React & FastAPI) · 4 yrs exp | Seattle, WA
+Contact: priya.sharma@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Priya Sharma is an experienced specialist with a background in: React, TypeScript, Python, FastAPI, REST APIs, PostgreSQL, Docker, Tailwind CSS.
+
+=== TECHNICAL SKILLS ===
+React, TypeScript, Python, FastAPI, REST APIs, PostgreSQL, Docker, Tailwind CSS
+
+=== WORK EXPERIENCE ===
+Full Stack Engineer at OmniStack Solutions (2020 - Present)
+Engineered React and TypeScript frontends backed by Python FastAPI services.
+
+=== PROJECTS ===
+Project: Interactive Analytics Dashboard
+Skills: React, TypeScript, FastAPI, Python
+Responsive dashboard using React, TypeScript, and FastAPI with REST APIs.
+
+=== EDUCATION ===
+B.S. in Computer Science from University of Washington

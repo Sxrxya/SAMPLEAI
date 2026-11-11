@@ -1,0 +1,21 @@
+Hannah Abbott
+Junior Frontend Developer · 1 yr exp | New York, NY
+Contact: hannah.abbott@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Hannah Abbott is an experienced specialist with a background in: React, TypeScript, Figma, Tailwind CSS, Accessibility.
+
+=== TECHNICAL SKILLS ===
+React, TypeScript, Figma, Tailwind CSS, Accessibility
+
+=== WORK EXPERIENCE ===
+Junior UI Developer at PixelCrafters (2023 - Present)
+Implemented React web components and styled them with Tailwind CSS based on Figma designs.
+
+=== PROJECTS ===
+Project: Design Token Showcase
+Skills: React, Tailwind CSS
+React component collection styled with Tailwind CSS.
+
+=== EDUCATION ===
+B.A. in Communications & Web Design from Fordham University

@@ -10,4 +10,8 @@ export const jobService = {
     body.append("file", file);
     return apiClient.post(`/employer/jobs/${jobId}/description/upload`, body);
   },
+  listCandidateJobs: (params: { page?: number; page_size?: number; search?: string } = {}) =>
+    apiClient.get<{ items: any[]; total: number; page: number; pages: number }>("/candidate/jobs", { params }),
+  getCandidateJob: (jobId: string) =>
+    apiClient.get(`/candidate/jobs/${jobId}`),
 };

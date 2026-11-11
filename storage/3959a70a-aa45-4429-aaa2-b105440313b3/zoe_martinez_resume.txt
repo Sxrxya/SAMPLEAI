@@ -1,0 +1,21 @@
+Zoe Martinez
+Senior Backend & Kubernetes Engineer · 5 yrs exp | Boston, MA
+Contact: zoe.martinez@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Zoe Martinez is an experienced specialist with a background in: Python, Microservices, Docker, Kubernetes, PostgreSQL, Redis.
+
+=== TECHNICAL SKILLS ===
+Python, Microservices, Docker, Kubernetes, PostgreSQL, Redis
+
+=== WORK EXPERIENCE ===
+Senior Infrastructure Engineer at Apex Cloud Systems (2019 - Present)
+Designed Python backend microservices on Docker and Kubernetes with PostgreSQL and Redis.
+
+=== PROJECTS ===
+Project: Cloud Observability Platform
+Skills: Python, Kubernetes, Docker, Redis
+Microservices metrics aggregation using Python and Redis on Kubernetes.
+
+=== EDUCATION ===
+B.S. in Computer Engineering from Northeastern University

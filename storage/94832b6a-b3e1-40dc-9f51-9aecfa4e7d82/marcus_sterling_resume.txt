@@ -1,0 +1,21 @@
+Marcus Sterling
+AI & Inference Engineer · 3 yrs exp | Boston, MA
+Contact: marcus.sterling@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Marcus Sterling is an experienced specialist with a background in: Python, PyTorch, Hugging Face, Machine Learning, FastAPI, Docker, PostgreSQL.
+
+=== TECHNICAL SKILLS ===
+Python, PyTorch, Hugging Face, Machine Learning, FastAPI, Docker, PostgreSQL
+
+=== WORK EXPERIENCE ===
+AI Software Engineer at VectorAI Dynamics (2021 - Present)
+Trained machine learning models and built deployment services in Python and FastAPI.
+
+=== PROJECTS ===
+Project: Hugging Face Inference Optimizer
+Skills: Python, Hugging Face, PyTorch, Docker
+Benchmarking low-latency PyTorch model execution in Docker.
+
+=== EDUCATION ===
+M.S. in Data Science from Harvard University

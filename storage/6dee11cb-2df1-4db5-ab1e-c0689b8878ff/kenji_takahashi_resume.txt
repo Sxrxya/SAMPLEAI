@@ -1,0 +1,21 @@
+Kenji Takahashi
+Computer Vision & Deep Learning Engineer · 4 yrs exp | San Francisco, CA
+Contact: kenji.takahashi@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Kenji Takahashi is an experienced specialist with a background in: Python, PyTorch, Machine Learning, Docker, Hugging Face, FastAPI.
+
+=== TECHNICAL SKILLS ===
+Python, PyTorch, Machine Learning, Docker, Hugging Face, FastAPI
+
+=== WORK EXPERIENCE ===
+Computer Vision Engineer at VisionAI Technologies (2020 - Present)
+Developed deep learning vision models in Python and PyTorch and deployed with Docker and FastAPI.
+
+=== PROJECTS ===
+Project: Real-time Object Detection Service
+Skills: Python, PyTorch, Machine Learning, Docker
+Vision inference engine using PyTorch, Python, and Docker.
+
+=== EDUCATION ===
+M.S. in Information Science from University of Tokyo

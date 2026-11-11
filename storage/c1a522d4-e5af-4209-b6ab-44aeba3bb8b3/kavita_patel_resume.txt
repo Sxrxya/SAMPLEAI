@@ -1,0 +1,21 @@
+Kavita Patel
+Clinical Data Analyst & SQL Specialist · 4 yrs exp | Boston, MA
+Contact: kavita.patel@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Kavita Patel is an experienced specialist with a background in: SQL, PostgreSQL, Python, Data Analysis, Medical Informatics, ETL.
+
+=== TECHNICAL SKILLS ===
+SQL, PostgreSQL, Python, Data Analysis, Medical Informatics, ETL
+
+=== WORK EXPERIENCE ===
+Clinical Data Analyst at Metropolitan Health Analytics (2020 - Present)
+Extracted and analyzed clinical metrics in PostgreSQL and Python using SQL and medical informatics.
+
+=== PROJECTS ===
+Project: Clinical Patient Cohort Pipeline
+Skills: SQL, PostgreSQL, Python, Data Analysis
+SQL and Python reporting engine analyzing patient records in PostgreSQL.
+
+=== EDUCATION ===
+B.S. in Health Informatics from Boston University

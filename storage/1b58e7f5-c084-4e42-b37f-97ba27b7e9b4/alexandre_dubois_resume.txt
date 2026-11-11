@@ -1,0 +1,21 @@
+Alexandre Dubois
+Full Stack Developer (React / FastAPI) · 3 yrs exp | Austin, TX
+Contact: alexandre.dubois@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Alexandre Dubois is an experienced specialist with a background in: React, TypeScript, Python, FastAPI, REST APIs, Tailwind CSS, PostgreSQL, Docker.
+
+=== TECHNICAL SKILLS ===
+React, TypeScript, Python, FastAPI, REST APIs, Tailwind CSS, PostgreSQL, Docker
+
+=== WORK EXPERIENCE ===
+Full Stack Engineer at Volt Software (2021 - Present)
+Developed React and TypeScript user interfaces connected to FastAPI REST APIs.
+
+=== PROJECTS ===
+Project: Customer Portal App
+Skills: React, TypeScript, Python, FastAPI, REST APIs
+Full stack application in React, TypeScript, and FastAPI with REST APIs.
+
+=== EDUCATION ===
+B.S. in Software Engineering from UT Dallas

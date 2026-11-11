@@ -106,8 +106,8 @@ async def _process_resume(
     try:
         extraction, actual_model_id = await inference.extract_resume(source_text)
     except Exception as exc:
-        logger.warning("AI resume extraction failed, falling back to rule-based parser: %s", exc)
-        actual_model_id = "fallback-text-parser"
+        logger.warning("AI resume extraction failed, using safe non-fabricating parser: %s", exc)
+        actual_model_id = "safe-rule-parser-v2"
         known_skills = [
             "python", "fastapi", "react", "typescript", "figma", "machine learning",
             "hugging face", "pytorch", "docker", "postgresql", "sql", "redis",
@@ -117,29 +117,45 @@ async def _process_resume(
         ]
         text_lower = source_text.lower()
         detected_skills = [s for s in known_skills if s in text_lower]
-        first_line = source_text.splitlines()[0] if source_text.splitlines() else "Candidate Profile"
+        first_line = source_text.splitlines()[0].strip() if source_text.splitlines() else None
+        # Safe fallback: NEVER invent missing employers, titles, or dates
         extraction = ResumeExtractionPayload(
-            schema_version="resume.v1",
-            headline=first_line[:120],
+            schema_version="resume.v2",
+            headline=first_line[:120] if first_line else None,
             summary=source_text[:400].strip(),
             skills=[
-                {"name": s.title(), "evidence": [{"source": "resume", "text": f"Mentioned in resume: {s}"}]}
+                {
+                    "name": s.title(),
+                    "category": "technical",
+                    "evidence_level": "CLAIMED",
+                    "evidence": [{"source": "resume_body", "text": f"Found verbatim in resume: {s}"}],
+                }
                 for s in detected_skills
             ],
-            work_history=[
-                {"employer": "Previous Organization", "title": "Specialist", "description": source_text[:600].strip(), "evidence": []}
-            ],
+            work_history=[],
+            internships=[],
             education=[],
             projects=[],
             certifications=[],
-            unknown_fields=[],
+            achievements=[],
+            publications=[],
+            languages=[],
+            volunteer_experience=[],
+            unknown_fields=["work_history", "education", "projects"],
+            field_statuses={
+                "skills": "EXTRACTED" if detected_skills else "NOT_FOUND",
+                "work_history": "NEEDS_REVIEW",
+                "education": "NEEDS_REVIEW",
+                "projects": "NEEDS_REVIEW",
+            },
+            source_text_summary=source_text[:2000].strip(),
         )
 
     db.add(
         ResumeExtraction(
             resume_version_id=version.id,
             schema_version=extraction.schema_version,
-            prompt_version="resume-extraction-v1",
+            prompt_version="resume-extraction-v2",
             provider="openai-compatible",
             model_id=actual_model_id,
             extraction_json=extraction.model_dump(mode="json"),
@@ -199,11 +215,10 @@ def _normalize_skill(value: str) -> str:
 async def _process_match_run(
     job: ProcessingJob, db: Session, inference: HostedInferenceClient
 ) -> None:
-    """Delegate to the unified execute_job_matching service.
+    """Execute match run using the unified merit-based matching service.
 
-    This replaces the old worker-specific matching logic so that both the
-    API endpoints and the background worker share the same consent-checked,
-    review-gated, weighted scoring pipeline.
+    Keeps the original MatchRun ID intact throughout its complete lifecycle
+    (queued -> processing -> complete/failed) and records execution metrics.
     """
     from app.services.matching import execute_job_matching
 
@@ -212,26 +227,31 @@ async def _process_match_run(
         raise ValueError("match run not found")
     job_version = db.get(JobVersion, run.job_version_id)
     if job_version is None or job_version.status != "approved":
+        run.status = "failed"
+        run.error_message = "approved job description not found"
+        run.completed_at = utc_now()
+        db.commit()
         raise ValueError("approved job description not found")
+
     run.status = "processing"
     db.commit()
 
-    # execute_job_matching already creates its own MatchRun + MatchResults,
-    # so we delete the pre-created run and let the service create a fresh one.
-    run_job_id = job_version.job_id
-    run_top_k = run.top_k or 5
-    run_requester = run.requested_by
-    db.delete(run)
-    db.commit()
-
-    await execute_job_matching(
-        db,
-        job_id=run_job_id,
-        top_k=run_top_k,
-        recruiter_id=run_requester,
-        inference=inference,
-    )
-    mark_succeeded(db, job)
+    try:
+        await execute_job_matching(
+            db,
+            job_id=job_version.job_id,
+            top_k=run.top_k or 5,
+            recruiter_id=run.requested_by,
+            inference=inference,
+            match_run_id=run.id,
+        )
+        mark_succeeded(db, job)
+    except Exception as exc:
+        run.status = "failed"
+        run.error_message = str(exc)[:490]
+        run.completed_at = utc_now()
+        db.commit()
+        raise
 
 
 async def process_job(job_id: str) -> None:

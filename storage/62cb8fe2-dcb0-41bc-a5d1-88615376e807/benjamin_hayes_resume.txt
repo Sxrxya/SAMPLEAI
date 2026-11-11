@@ -1,0 +1,21 @@
+Benjamin Hayes
+Senior Product & Design Systems Designer · 5 yrs exp | New York, NY
+Contact: benjamin.hayes@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Benjamin Hayes is an experienced specialist with a background in: Figma, Design Systems, User Research, Prototyping, Accessibility, UI/UX.
+
+=== TECHNICAL SKILLS ===
+Figma, Design Systems, User Research, Prototyping, Accessibility, UI/UX
+
+=== WORK EXPERIENCE ===
+Senior Product Designer at ModernUI Labs (2019 - Present)
+Created scalable design systems in Figma, led user research sessions, and developed prototypes.
+
+=== PROJECTS ===
+Project: Multi-Brand Design System
+Skills: Figma, Design Systems, User Research, Accessibility
+Comprehensive design system across web and mobile using Figma and WCAG guidelines.
+
+=== EDUCATION ===
+B.S. in Human-Computer Interaction from Carnegie Mellon University

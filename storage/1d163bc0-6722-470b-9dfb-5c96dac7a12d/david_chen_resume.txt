@@ -1,0 +1,24 @@
+David Chen
+Lead ML & NLP Engineer · 5 yrs exp | San Francisco, CA
+Contact: david.chen@example.com
+
+=== PROFESSIONAL SUMMARY ===
+David Chen is an experienced specialist with a background in: Python, Machine Learning, Hugging Face, PyTorch, NLP, FastAPI, Docker, PostgreSQL.
+
+=== TECHNICAL SKILLS ===
+Python, Machine Learning, Hugging Face, PyTorch, NLP, FastAPI, Docker, PostgreSQL
+
+=== WORK EXPERIENCE ===
+Lead ML Engineer at DeepScale AI (2021 - Present)
+Fine-tuned Hugging Face transformer models with PyTorch and served APIs with FastAPI.
+
+Machine Learning Engineer at LanguageTech (2019 - 2021)
+Engineered NLP text classification pipelines in Python and Docker.
+
+=== PROJECTS ===
+Project: Neural Semantic Search Engine
+Skills: Python, Machine Learning, Hugging Face
+Semantic retrieval system using Hugging Face embeddings and Python.
+
+=== EDUCATION ===
+M.S. in Artificial Intelligence from UC Berkeley

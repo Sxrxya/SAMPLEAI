@@ -1,0 +1,21 @@
+Nadia Petrov
+Embedded Systems & Mobile Engineer · 4 yrs exp | Boston, MA
+Contact: nadia.petrov@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Nadia Petrov is an experienced specialist with a background in: C++, Swift, Kotlin, Firmware, Python.
+
+=== TECHNICAL SKILLS ===
+C++, Swift, Kotlin, Firmware, Python
+
+=== WORK EXPERIENCE ===
+Embedded Software Engineer at Embedded Devices Corp (2020 - Present)
+Programmed microcontrollers in C++ and built companion mobile applications in Swift.
+
+=== PROJECTS ===
+Project: IoT Sensor Firmware
+Skills: C++, Swift
+Ultra low-power firmware written in C++ for wireless IoT devices.
+
+=== EDUCATION ===
+B.S. in Electrical Engineering from RPI

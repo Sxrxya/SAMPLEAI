@@ -1,0 +1,21 @@
+Sophia Vance
+Principal Product Designer · 7 yrs exp | New York, NY
+Contact: sophia.vance@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Sophia Vance is an experienced specialist with a background in: Figma, Design Systems, User Research, Prototyping, Accessibility, UI/UX.
+
+=== TECHNICAL SKILLS ===
+Figma, Design Systems, User Research, Prototyping, Accessibility, UI/UX
+
+=== WORK EXPERIENCE ===
+Lead Product Designer at Fieldwork Design Group (2018 - Present)
+Led design systems, user research interviews, and accessible Figma prototypes.
+
+=== PROJECTS ===
+Project: Global Accessible Design System
+Skills: Figma, Design Systems, Accessibility, Prototyping
+Comprehensive Figma component library meeting WCAG accessibility guidelines.
+
+=== EDUCATION ===
+B.F.A. in Graphic Design from Rhode Island School of Design

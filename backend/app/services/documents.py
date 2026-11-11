@@ -9,13 +9,14 @@ from pypdf import PdfReader
 
 from app.core.config import get_settings
 
-ALLOWED_EXTENSIONS = {".pdf", ".docx"}
+ALLOWED_EXTENSIONS = {".pdf", ".docx", ".txt"}
 ALLOWED_MIME_TYPES = {
     ".pdf": {"application/pdf", "application/octet-stream"},
     ".docx": {
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         "application/octet-stream",
     },
+    ".txt": {"text/plain", "application/octet-stream"},
 }
 
 
@@ -69,12 +70,36 @@ async def store_upload(upload: UploadFile, owner_id: str) -> tuple[str, str, int
 
 
 def extract_text(storage_path: Path) -> str:
-    if storage_path.suffix.lower() == ".pdf":
-        reader = PdfReader(storage_path)
-        text = "\n".join(page.extract_text() or "" for page in reader.pages)
+    ext = storage_path.suffix.lower()
+    if ext == ".pdf":
+        try:
+            reader = PdfReader(storage_path)
+            pages_text = []
+            for idx, page in enumerate(reader.pages, start=1):
+                p_text = (page.extract_text() or "").strip()
+                if p_text:
+                    pages_text.append(f"[Page {idx}]\n{p_text}")
+            text = "\n\n".join(pages_text)
+            if not text.strip() and len(reader.pages) > 0:
+                raise ValueError("Scanned PDF detected without extractable text layer. OCR required.")
+        except Exception as exc:
+            if "Scanned PDF" in str(exc):
+                raise
+            raise ValueError(f"Corrupted or unreadable PDF document: {exc}") from exc
+    elif ext == ".docx":
+        try:
+            document = Document(storage_path)
+            text = "\n".join(paragraph.text for paragraph in document.paragraphs if paragraph.text.strip())
+        except Exception as exc:
+            raise ValueError(f"Corrupted or unreadable DOCX document: {exc}") from exc
+    elif ext == ".txt":
+        try:
+            text = storage_path.read_text(encoding="utf-8", errors="ignore")
+        except Exception as exc:
+            raise ValueError(f"Failed to read text file: {exc}") from exc
     else:
-        document = Document(storage_path)
-        text = "\n".join(paragraph.text for paragraph in document.paragraphs)
+        raise ValueError(f"Unsupported document format: {ext}")
+
     if not text.strip():
-        raise ValueError("No text could be extracted; OCR is not configured")
+        raise ValueError("Document contains no readable text")
     return text[:100_000]

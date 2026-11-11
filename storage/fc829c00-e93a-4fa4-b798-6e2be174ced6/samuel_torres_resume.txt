@@ -1,0 +1,21 @@
+Samuel Torres
+Web Developer · Generalist · 2 yrs exp | San Francisco, CA
+Contact: samuel.torres@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Samuel Torres is an experienced specialist with a background in: Python, FastAPI, Machine Learning, Docker, React, WordPress.
+
+=== TECHNICAL SKILLS ===
+Python, FastAPI, Machine Learning, Docker, React, WordPress
+
+=== WORK EXPERIENCE ===
+Web Specialist at Freelance Web Studio (2022 - Present)
+Maintained small business websites using WordPress, HTML, CSS, and basic JavaScript.
+
+=== PROJECTS ===
+Project: Agency Landing Pages
+Skills: WordPress, React
+Created marketing web pages using HTML, CSS, and WordPress.
+
+=== EDUCATION ===
+B.A. in General Studies from San Jose State University

@@ -1,0 +1,21 @@
+Rachel Green
+Junior UX Designer · 1 yr exp | New York, NY
+Contact: rachel.green@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Rachel Green is an experienced specialist with a background in: Figma, Prototyping, UI/UX, Design Systems, User Research.
+
+=== TECHNICAL SKILLS ===
+Figma, Prototyping, UI/UX, Design Systems, User Research
+
+=== WORK EXPERIENCE ===
+Junior UX Designer at Creative Spark Agency (2023 - Present)
+Created wireframes and user interaction flows in Figma.
+
+=== PROJECTS ===
+Project: E-Commerce App Wireframes
+Skills: Figma, Prototyping
+Figma interactive wireframes for mobile retail application.
+
+=== EDUCATION ===
+B.S. in Graphic Design from Syracuse University

@@ -109,11 +109,13 @@ class HostedInferenceClient:
 
     async def extract_resume(self, source_text: str) -> tuple[ResumeExtractionPayload, str]:
         prompt = (
-            "Extract only supported facts from the resume. Never infer missing facts. "
-            "Return JSON matching this schema: "
-            f"{ResumeExtractionPayload.model_json_schema()}. Include source evidence and "
-            "page numbers "
-            "when available. Put absent requested information in unknown_fields."
+            "You are an expert AI resume extraction system. Extract structured factual information from the resume.\n"
+            "CRITICAL EXTRACTION RULES:\n"
+            "1. Extract ONLY facts explicitly supported by the resume content. NEVER fabricate employers, titles, skills, or dates.\n"
+            "2. For skills and projects, classify evidence_level: 'DEMONSTRATED' (direct implementation evidence), 'CONTEXTUAL' (used in task/role), or 'CLAIMED' (merely listed).\n"
+            "3. Explicitly report missing information in unknown_fields or field_statuses: 'EXTRACTED', 'NOT_FOUND', or 'NEEDS_REVIEW'.\n"
+            "4. Include exact source text snippets in the evidence list for each item.\n"
+            f"Return JSON conforming to schema: {json.dumps(ResumeExtractionPayload.model_json_schema())}"
         )
         payload, model_id = await self._chat_json(
             prompt, source_text, ResumeExtractionPayload.model_json_schema()
@@ -122,9 +124,13 @@ class HostedInferenceClient:
 
     async def extract_job(self, source_text: str) -> tuple[JobExtractionPayload, str]:
         prompt = (
-            "Extract requirements only from the provided job description. Separate required and "
-            "preferred qualifications; do not invent criteria. Return JSON matching this schema: "
-            f"{JobExtractionPayload.model_json_schema()}. Include evidence for each requirement."
+            "You are an expert job description analysis system. Extract requirements strictly from the text.\n"
+            "CRITICAL EXTRACTION RULES:\n"
+            "1. Separate required_skills from preferred_skills; never promote preferred skills to required.\n"
+            "2. Extract min_experience_months (e.g. 3 years = 36 months) and max_experience_months if mentioned.\n"
+            "3. Extract education requirements and certification requirements separately.\n"
+            "4. Include exact evidence quotes from the JD for each requirement.\n"
+            f"Return JSON conforming to schema: {json.dumps(JobExtractionPayload.model_json_schema())}"
         )
         payload, model_id = await self._chat_json(
             prompt, source_text, JobExtractionPayload.model_json_schema()

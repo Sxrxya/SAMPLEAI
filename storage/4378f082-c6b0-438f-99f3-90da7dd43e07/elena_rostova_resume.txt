@@ -1,0 +1,21 @@
+Elena Rostova
+Senior Backend Systems Engineer · 6 yrs exp | Austin, TX
+Contact: elena.rostova@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Elena Rostova is an experienced specialist with a background in: Python, FastAPI, PostgreSQL, Docker, Redis, Microservices, Kubernetes.
+
+=== TECHNICAL SKILLS ===
+Python, FastAPI, PostgreSQL, Docker, Redis, Microservices, Kubernetes
+
+=== WORK EXPERIENCE ===
+Senior Backend Engineer at CloudCorp Systems (2019 - Present)
+Architected resilient microservices with Python, FastAPI, Docker, Kubernetes, and PostgreSQL.
+
+=== PROJECTS ===
+Project: High-Throughput Task Broker
+Skills: Python, FastAPI, Redis, Docker
+Distributed task queue in Python using Redis and Docker.
+
+=== EDUCATION ===
+B.S. in Computer Engineering from UT Austin

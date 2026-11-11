@@ -63,19 +63,17 @@ export function PortalLayout() {
   const { role: roleParam, section = "overview" } = useParams();
   const navigate = useNavigate();
   const activeRole = roleParam as Role;
-  const signIn = useSessionStore((state) => state.signIn);
   const signOut = useSessionStore((state) => state.signOut);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
 
   const changeRole = (role: Role) => {
-    signIn(role);
-    navigate(`/portal/${role}/overview`);
+    navigate(`/login/${role}`);
     setSidebarOpen(false);
   };
 
-  const logout = () => {
-    signOut();
+  const logout = async () => {
+    await signOut();
     navigate("/");
   };
 

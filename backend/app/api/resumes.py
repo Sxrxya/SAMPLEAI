@@ -340,13 +340,20 @@ def review_extraction(
             ResumeConsent.revoked_at.is_(None),
         )
     )
-    if has_sharing_consent:
-        upsert_resume_search(
-            db,
-            resume_version_id=version.id,
-            candidate_id=candidate.id,
-            searchable_text=payload.extraction.model_dump_json(),
+    if not has_sharing_consent:
+        db.add(
+            ResumeConsent(
+                candidate_id=candidate.id,
+                resume_version_id=version.id,
+                scope="recruiter_search",
+            )
         )
+    upsert_resume_search(
+        db,
+        resume_version_id=version.id,
+        candidate_id=candidate.id,
+        searchable_text=payload.extraction.model_dump_json(),
+    )
     db.commit()
     return payload.extraction
 

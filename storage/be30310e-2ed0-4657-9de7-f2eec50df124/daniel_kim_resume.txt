@@ -1,0 +1,20 @@
+Daniel Kim
+AI & ML Graduate · Academic Research | San Francisco, CA
+Contact: daniel.kim@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Daniel Kim is an experienced specialist with a background in: Python, Machine Learning, PyTorch, Hugging Face, FastAPI, Docker.
+
+=== TECHNICAL SKILLS ===
+Python, Machine Learning, PyTorch, Hugging Face, FastAPI, Docker
+
+=== WORK EXPERIENCE ===
+No commercial work history recorded.
+
+=== PROJECTS ===
+Project: Master's Thesis: Efficient Transformer Training
+Skills: Python, Machine Learning, PyTorch, Hugging Face
+Benchmarking deep learning architectures with Python, PyTorch, and Hugging Face.
+
+=== EDUCATION ===
+M.S. in Computer Science from Stanford University

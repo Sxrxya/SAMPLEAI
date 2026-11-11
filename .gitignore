@@ -14,3 +14,5 @@ backend/.ruff_cache/
 backend/*.db
 backend/*.db-shm
 backend/*.db-wal
+.env
+.env.backup

@@ -1,0 +1,21 @@
+James Wilson
+Healthcare Data Scientist · 3 yrs exp | Boston, MA
+Contact: james.wilson@example.com
+
+=== PROFESSIONAL SUMMARY ===
+James Wilson is an experienced specialist with a background in: Python, SQL, PostgreSQL, Data Analysis, Medical Informatics, Statistics.
+
+=== TECHNICAL SKILLS ===
+Python, SQL, PostgreSQL, Data Analysis, Medical Informatics, Statistics
+
+=== WORK EXPERIENCE ===
+Data Scientist at BioHealth Partners (2021 - Present)
+Analyzed patient outcomes using SQL, Python, and PostgreSQL in a medical informatics environment.
+
+=== PROJECTS ===
+Project: EHR Predictive Analytics
+Skills: Python, SQL, PostgreSQL, Data Analysis
+Statistical modeling on healthcare records with Python and PostgreSQL.
+
+=== EDUCATION ===
+M.S. in Biostatistics from Tufts University

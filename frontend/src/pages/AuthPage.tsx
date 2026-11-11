@@ -23,6 +23,7 @@ export function AuthPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [orgName, setOrgName] = useState("");
   const {
     register,
     handleSubmit,
@@ -33,34 +34,59 @@ export function AuthPage() {
     setLoading(true);
     setAuthError(null);
     try {
+      let authRes;
       if (isRegister) {
-        await authService.register({
-          display_name: data.name || data.email.split("@")[0],
-          email: data.email,
-          password: data.password,
-        });
+        if (role === "recruiter") {
+          authRes = await authService.registerRecruiter({
+            display_name: data.name || data.email.split("@")[0],
+            email: data.email,
+            password: data.password,
+            organization_name: orgName.trim() || "My Company",
+          });
+        } else {
+          authRes = await authService.registerCandidate({
+            display_name: data.name || data.email.split("@")[0],
+            email: data.email,
+            password: data.password,
+          });
+        }
       } else {
-        await authService.login({
+        authRes = await authService.login({
           email: data.email,
           password: data.password,
         });
       }
-      signIn(role);
-      navigate(`/portal/${role}/overview`);
+      signIn(authRes.user);
+      if (authRes.user.role === "candidate") {
+        navigate("/portal/candidate/resume");
+      } else {
+        navigate(`/portal/${authRes.user.role}/overview`);
+      }
     } catch (err: any) {
       console.error("Auth error:", err);
-      // If registration fails with conflict, try logging in
+      // If registration fails with conflict (account already exists), try logging in
       if (isRegister && err.response?.status === 409) {
         try {
-          await authService.login({ email: data.email, password: data.password });
-          signIn(role);
-          navigate(`/portal/${role}/overview`);
+          const authRes = await authService.login({ email: data.email, password: data.password });
+          signIn(authRes.user);
+          if (authRes.user.role === "candidate") {
+            navigate("/portal/candidate/resume");
+          } else {
+            navigate(`/portal/${authRes.user.role}/overview`);
+          }
           return;
         } catch {
           // ignore
         }
       }
-      setAuthError(err.response?.data?.detail || "Authentication failed. Make sure your password has at least 12 characters.");
+      const detail = err.response?.data?.detail;
+      const msg =
+        typeof detail === "string"
+          ? detail
+          : Array.isArray(detail) && detail[0]?.msg
+          ? detail[0].msg
+          : "Authentication failed. Please verify your email and password.";
+      setAuthError(msg);
     } finally {
       setLoading(false);
     }
@@ -102,6 +128,17 @@ export function AuthPage() {
                 autoComplete="name"
                 placeholder="Your name"
                 {...register("name")}
+              />
+            </label>
+          )}
+          {isRegister && role === "recruiter" && (
+            <label>
+              Company / Organization Name
+              <input
+                placeholder="e.g. Acme Corporation"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                required
               />
             </label>
           )}

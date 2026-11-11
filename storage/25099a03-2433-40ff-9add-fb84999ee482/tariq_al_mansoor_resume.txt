@@ -1,0 +1,21 @@
+Tariq Al-Mansoor
+Distributed Systems Architect · 7 yrs exp | Boston, MA
+Contact: tariq.mansoor@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Tariq Al-Mansoor is an experienced specialist with a background in: Python, Microservices, Docker, Kubernetes, PostgreSQL, Redis, AWS, Go.
+
+=== TECHNICAL SKILLS ===
+Python, Microservices, Docker, Kubernetes, PostgreSQL, Redis, AWS, Go
+
+=== WORK EXPERIENCE ===
+Principal Backend Architect at ScaleGrid Infrastructure (2017 - Present)
+Architected distributed microservices with Python, Docker, Kubernetes, PostgreSQL, and Redis.
+
+=== PROJECTS ===
+Project: Zero-Downtime Microservice Mesh
+Skills: Python, Microservices, Docker, Kubernetes, PostgreSQL, Redis
+Kubernetes and Docker architecture connecting Python microservices with Redis and PostgreSQL.
+
+=== EDUCATION ===
+M.S. in Computer Science from MIT

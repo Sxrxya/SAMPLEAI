@@ -1,0 +1,21 @@
+Aisha Bello
+Database & Data Engineer · 3 yrs exp | Boston, MA
+Contact: aisha.bello@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Aisha Bello is an experienced specialist with a background in: SQL, PostgreSQL, Python, Data Analysis, ETL, Redis.
+
+=== TECHNICAL SKILLS ===
+SQL, PostgreSQL, Python, Data Analysis, ETL, Redis
+
+=== WORK EXPERIENCE ===
+Data Engineer at DataSphere Analytics (2021 - Present)
+Designed relational database architectures in PostgreSQL and automated data workflows with Python and SQL.
+
+=== PROJECTS ===
+Project: PostgreSQL Data Pipeline
+Skills: SQL, PostgreSQL, Python
+Automated data ingestion engine built using Python and PostgreSQL.
+
+=== EDUCATION ===
+B.S. in Computer Science from University of Massachusetts

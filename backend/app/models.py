@@ -280,6 +280,8 @@ class MatchRun(Base):
     top_k: Mapped[int] = mapped_column(Integer, default=10)
     config_version: Mapped[str] = mapped_column(String(32), default="retrieval-v1")
     created_at: Mapped[datetime] = mapped_column(default=utc_now)
+    completed_at: Mapped[datetime | None] = mapped_column(default=None)
+    error_message: Mapped[str | None] = mapped_column(String(500), default=None)
 
 
 class MatchResult(Base):

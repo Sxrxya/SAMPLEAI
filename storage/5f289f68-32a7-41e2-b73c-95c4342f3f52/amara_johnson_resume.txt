@@ -1,0 +1,24 @@
+Amara Johnson
+Senior AI & Platform Engineer · 6 yrs exp | San Francisco, CA
+Contact: amara.johnson@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Amara Johnson is an experienced specialist with a background in: Python, FastAPI, Machine Learning, Hugging Face, Docker, PostgreSQL, PyTorch, Redis.
+
+=== TECHNICAL SKILLS ===
+Python, FastAPI, Machine Learning, Hugging Face, Docker, PostgreSQL, PyTorch, Redis
+
+=== WORK EXPERIENCE ===
+Senior AI Platform Engineer at Cortex Labs (2020 - Present)
+Architected low-latency inference microservices using Python, FastAPI, Hugging Face models, and PostgreSQL.
+
+Backend Software Engineer at DataFlow Systems (2018 - 2020)
+Developed backend APIs in Python and containerized services using Docker.
+
+=== PROJECTS ===
+Project: Distributed LLM Serving Engine
+Skills: Python, FastAPI, Hugging Face, Docker
+Engineered a low-latency model inference gateway in Python and FastAPI with Hugging Face transformers.
+
+=== EDUCATION ===
+B.S. in Computer Science from Columbia University

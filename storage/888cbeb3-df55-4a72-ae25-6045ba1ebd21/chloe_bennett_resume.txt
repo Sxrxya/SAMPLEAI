@@ -1,0 +1,21 @@
+Chloe Bennett
+Junior Full Stack Developer · 1 yr exp | Austin, TX
+Contact: chloe.bennett@example.com
+
+=== PROFESSIONAL SUMMARY ===
+Chloe Bennett is an experienced specialist with a background in: React, TypeScript, Python, FastAPI, REST APIs.
+
+=== TECHNICAL SKILLS ===
+React, TypeScript, Python, FastAPI, REST APIs
+
+=== WORK EXPERIENCE ===
+Junior Developer at StartupLab (2023 - Present)
+Contributed to React components and assisted with Python backend routes.
+
+=== PROJECTS ===
+Project: Personal Portfolio & Blog
+Skills: React, TypeScript
+Web app built using React and TypeScript.
+
+=== EDUCATION ===
+B.S. in Information Technology from Texas A&M
