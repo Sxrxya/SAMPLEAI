@@ -2,7 +2,7 @@ import asyncio
 import json
 import math
 import re
-
+import httpx
 from huggingface_hub import AsyncInferenceClient
 from huggingface_hub.errors import HfHubHTTPError, InferenceTimeoutError
 
@@ -32,7 +32,7 @@ def _parse_json(raw: str) -> dict:
 
 
 class HostedInferenceClient:
-    """Hugging Face hosted inference adapter; no local model fallback."""
+    """Unified inference adapter supporting OpenAI, Groq, and Hugging Face."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
@@ -48,6 +48,10 @@ class HostedInferenceClient:
         if not self.settings.inference_enabled:
             raise InferenceUnavailable("Hosted inference is disabled")
 
+    def _is_openai_compatible(self) -> bool:
+        key = self.settings.inference_api_key.get_secret_value()
+        return key.startswith("sk-") or key.startswith("gsk_") or self.settings.inference_provider.lower() in ["openai", "groq"]
+
     def _client(self) -> AsyncInferenceClient:
         return AsyncInferenceClient(
             provider=self.settings.inference_provider,
@@ -59,6 +63,38 @@ class HostedInferenceClient:
         self, system_prompt: str, source_text: str, schema: dict
     ) -> tuple[dict, str]:
         self._ensure_configured()
+        token = self.settings.inference_api_key.get_secret_value()
+
+        # 1. Direct OpenAI or Groq endpoint
+        if self._is_openai_compatible():
+            is_groq = token.startswith("gsk_") or self.settings.inference_provider.lower() == "groq"
+            endpoint = "https://api.groq.com/openai/v1/chat/completions" if is_groq else "https://api.openai.com/v1/chat/completions"
+            model_name = "llama-3.3-70b-versatile" if is_groq else ("gpt-4o-mini" if "qwen" in self.settings.inference_chat_model.lower() else self.settings.inference_chat_model)
+
+            headers = {
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+            body = {
+                "model": model_name,
+                "messages": [
+                    {"role": "system", "content": f"{system_prompt}\nReturn valid JSON only."},
+                    {"role": "user", "content": source_text},
+                ],
+                "response_format": {"type": "json_object"},
+                "temperature": 0.0,
+            }
+
+            async with self._get_semaphore():
+                async with httpx.AsyncClient(timeout=self.settings.inference_timeout_seconds) as client:
+                    resp = await client.post(endpoint, headers=headers, json=body)
+                    if resp.status_code != 200:
+                        raise InferenceProviderError(f"OpenAI/Groq request failed ({resp.status_code}): {resp.text}")
+                    data = resp.json()
+                    content = data["choices"][0]["message"]["content"]
+                    return _parse_json(content), model_name
+
+        # 2. Hugging Face Inference
         client = self._client()
         try:
             async with self._get_semaphore():
@@ -139,6 +175,21 @@ class HostedInferenceClient:
 
     async def embed(self, text: str) -> tuple[list[float], str]:
         self._ensure_configured()
+        if self._is_openai_compatible():
+            token = self.settings.inference_api_key.get_secret_value()
+            try:
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    res = await client.post(
+                        "https://api.openai.com/v1/embeddings",
+                        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                        json={"model": "text-embedding-3-small", "input": text[:2000].strip() or "empty"},
+                    )
+                    if res.status_code == 200:
+                        data = res.json()["data"][0]["embedding"]
+                        return data, "text-embedding-3-small"
+            except Exception:
+                pass
+
         if not self.settings.inference_embedding_model:
             raise InferenceUnavailable("Embedding model is not configured")
         client = self._client()

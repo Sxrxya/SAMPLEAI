@@ -111,9 +111,13 @@ async def _process_resume(
         extraction, actual_model_id = await inference.extract_resume(source_text)
         extraction_dict = extraction.model_dump(mode="json")
     except Exception as exc:
+        err_text = str(exc)
         logger.warning("AI resume extraction fallback engaged: %s", exc)
-        extraction_dict = parse_resume_document(source_text)
-        actual_model_id = "structured-document-parser-v3 (HF 402 Fallback)"
+        notice = "OpenAI returned 429: Credit balance exhausted (Add credits at platform.openai.com)." if "429" in err_text or "credit" in err_text else (
+            "Hugging Face returned 402: Account requires pre-paid inference credits." if "402" in err_text else str(exc)[:150]
+        )
+        extraction_dict = parse_resume_document(source_text, warning_msg=notice)
+        actual_model_id = "Structured Document Parser v3 (Fallback)"
 
     db.add(
         ResumeExtraction(

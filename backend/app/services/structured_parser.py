@@ -9,7 +9,7 @@ def clean_section_header(line: str) -> str:
     return cleaned
 
 
-def parse_resume_document(source_text: str) -> dict[str, Any]:
+def parse_resume_document(source_text: str, warning_msg: str | None = None) -> dict[str, Any]:
     """High-precision deterministic structured document parser for resumes.
     Conforms strictly to the required contract in PART 3.
     Extracts all sections, contacts, experiences, projects, education,
@@ -404,17 +404,16 @@ def parse_resume_document(source_text: str) -> dict[str, Any]:
         "additional_information": [],
         # Metadata
         "extraction_metadata": {
-            "configured_model": "Qwen/Qwen2.5-72B-Instruct",
-            "actual_model_used": "Structured Document Parser v3 (HF 402 Fallback)",
-            "provider": "Hugging Face Router (HTTP 402: Account Requires Pre-Paid Credits) -> Local High-Precision Parser",
+            "configured_model": "gpt-4o-mini",
+            "actual_model_used": "Structured Document Parser v3 (Fallback)",
+            "provider": "Cloud LLM -> Local High-Precision Parser",
             "processing_status": "Structured extraction completed",
             "pages_processed": page_count,
             "input_text_length": len(source_text),
             "truncation_status": "Complete (No truncation)",
             "fallback_usage": True,
             "validation_warnings": [
-                "Hugging Face Inference Providers requires pre-paid credits (HTTP 402 Payment Required).",
-                "High-precision structured document extraction was executed locally without data loss."
+                warning_msg or "AI cloud provider reported exhausted quota or credits. High-precision structured document extraction was executed locally without data loss."
             ],
             "raw_text_snippet": source_text[:1500],
         },
