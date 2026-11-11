@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     inference_enabled: bool = False
     inference_provider: str = "auto"
     inference_api_key: SecretStr = SecretStr("")
-    inference_chat_model: str = "Qwen/Qwen3-14B:cheapest"
-    inference_embedding_model: str = "Qwen/Qwen3-Embedding-0.6B"
+    inference_chat_model: str = "Qwen/Qwen2.5-72B-Instruct"
+    inference_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
     inference_reranker_model: str = ""
     inference_timeout_seconds: float = 45
     inference_max_concurrency: int = 2

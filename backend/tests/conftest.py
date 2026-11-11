@@ -19,13 +19,21 @@ get_settings.cache_clear()
 
 from app.core.db import Base, engine
 from app.main import app
+from app.services.search import initialize_search_index
+
+
+@pytest.fixture(autouse=True)
+def setup_database():
+    Base.metadata.create_all(bind=engine)
+    initialize_search_index()
+    yield
+    with engine.begin() as connection:
+        connection.execute(text("DELETE FROM resume_search"))
+        for table in reversed(Base.metadata.sorted_tables):
+            connection.execute(table.delete())
 
 
 @pytest.fixture
 def client():
     with TestClient(app) as test_client:
         yield test_client
-    with engine.begin() as connection:
-        connection.execute(text("DELETE FROM resume_search"))
-        for table in reversed(Base.metadata.sorted_tables):
-            connection.execute(table.delete())

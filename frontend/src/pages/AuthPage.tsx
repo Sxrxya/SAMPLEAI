@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { authSchema, type AuthInput } from "../schemas/auth";
+import { authService } from "../services/authService";
 import { useSessionStore } from "../store/session";
 import type { Role } from "../types";
 
@@ -20,15 +21,49 @@ export function AuthPage() {
   const navigate = useNavigate();
   const signIn = useSessionStore((state) => state.signIn);
   const [isRegister, setIsRegister] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
   const {
     register,
     handleSubmit,
     formState: { errors },
   } = useForm<AuthInput>({ resolver: zodResolver(authSchema) });
 
-  const submit = handleSubmit(() => {
-    signIn(role);
-    navigate(`/portal/${role}/overview`);
+  const submit = handleSubmit(async (data) => {
+    setLoading(true);
+    setAuthError(null);
+    try {
+      if (isRegister) {
+        await authService.register({
+          display_name: data.name || data.email.split("@")[0],
+          email: data.email,
+          password: data.password,
+        });
+      } else {
+        await authService.login({
+          email: data.email,
+          password: data.password,
+        });
+      }
+      signIn(role);
+      navigate(`/portal/${role}/overview`);
+    } catch (err: any) {
+      console.error("Auth error:", err);
+      // If registration fails with conflict, try logging in
+      if (isRegister && err.response?.status === 409) {
+        try {
+          await authService.login({ email: data.email, password: data.password });
+          signIn(role);
+          navigate(`/portal/${role}/overview`);
+          return;
+        } catch {
+          // ignore
+        }
+      }
+      setAuthError(err.response?.data?.detail || "Authentication failed. Make sure your password has at least 12 characters.");
+    } finally {
+      setLoading(false);
+    }
   });
 
   return (
@@ -104,8 +139,13 @@ export function AuthPage() {
               </span>
             )}
           </label>
-          <button className="button button-primary auth-submit" type="submit">
-            {isRegister ? "Create account" : "Continue"}{" "}
+          {authError && (
+            <div className="form-error" style={{ marginBottom: "0.75rem", color: "var(--danger, #e53e3e)", fontSize: "0.85rem" }}>
+              {authError}
+            </div>
+          )}
+          <button className="button button-primary auth-submit" type="submit" disabled={loading}>
+            {loading ? "Signing in..." : isRegister ? "Create account" : "Continue"}{" "}
             <ArrowRight size={16} />
           </button>
         </form>

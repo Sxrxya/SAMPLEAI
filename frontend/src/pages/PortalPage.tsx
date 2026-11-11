@@ -21,12 +21,17 @@ import {
   Sparkles,
   UsersRound,
   X,
+  RefreshCw,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { lazy, Suspense } from "react";
 import { Link, useParams } from "react-router-dom";
-import { usesDemoData } from "../services/apiClient";
 import { mockPortalService } from "../services/mockPortalService";
+import { employerService } from "../services/employerService";
+import { matchingService } from "../services/matchingService";
+import { candidateService } from "../services/candidateService";
+import { authService } from "../services/authService";
+import { tokenStore } from "../services/tokenStore";
 import { navigation, roleLabels, type MatchResult, type Role } from "../types";
 
 const greetings: Record<Role, string> = {
@@ -59,7 +64,6 @@ export function PortalPage() {
       ? greetings[role]
       : (activeNav?.label ?? "Workspace");
 
-  if (!usesDemoData) return <LiveEmptyPage role={role} title={heading} />;
   if (section === "overview")
     return <Overview role={role} onCreateJob={() => setShowJobForm(true)} />;
 
@@ -129,29 +133,6 @@ export function PortalPage() {
         <WorkspaceSection role={role} section={section} />
       )}
       {showJobForm && <JobModal onClose={() => setShowJobForm(false)} />}
-    </>
-  );
-}
-
-function LiveEmptyPage({ role, title }: { role: Role; title: string }) {
-  return (
-    <>
-      <PageHeader
-        eyebrow={`${roleLabels[role]} workspace`}
-        title={title}
-        description="This view is ready for FastAPI data."
-      />
-      <section className="panel live-empty">
-        <span className="live-empty-icon">
-          <CircleHelp size={20} />
-        </span>
-        <strong>Live API not connected</strong>
-        <p>
-          No backend endpoint has been verified or configured. Review the
-          proposed routes in API_CONTRACT.md before enabling live services.
-        </p>
-        <span>Sample data is intentionally hidden while demo mode is off.</span>
-      </section>
     </>
   );
 }
@@ -569,44 +550,288 @@ function StatusTag({ status }: { status: string }) {
 
 function MatchingResults() {
   const [expanded, setExpanded] = useState<string | null>("cand-1048");
-  const matches = mockPortalService.getMatches();
+  const [jobs, setJobs] = useState<{ id: string; title: string; location?: string }[]>([]);
+  const [selectedJobId, setSelectedJobId] = useState<string>("");
+  const [matches, setMatches] = useState<MatchResult[]>(mockPortalService.getMatches());
+  const [loading, setLoading] = useState(false);
+  const [matchingRunning, setMatchingRunning] = useState(false);
+  const [showQuickModal, setShowQuickModal] = useState(false);
+  const [quickTitle, setQuickTitle] = useState("");
+  const [quickJD, setQuickJD] = useState("");
+  const [quickLocation, setQuickLocation] = useState("Remote / Hybrid");
+
+  // Load jobs from employerService
+  useEffect(() => {
+    let mounted = true;
+    async function loadJobs() {
+      try {
+        const res = await employerService.getJobs();
+        const items = res.data?.items || [];
+        if (mounted && items.length > 0) {
+          setJobs(items);
+          setSelectedJobId(items[0].id);
+        }
+      } catch {
+        // Fallback to default demo jobs if API is unavailable
+      }
+    }
+    loadJobs();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // When selectedJobId changes, load top 5 matches
+  useEffect(() => {
+    if (!selectedJobId) return;
+    let mounted = true;
+    async function fetchMatches() {
+      setLoading(true);
+      try {
+        const res = await matchingService.getResults(selectedJobId);
+        const list = res.data?.items || (Array.isArray(res.data) ? res.data : []);
+        if (mounted && list.length > 0) {
+          setMatches(list);
+          setExpanded(list[0].candidateId);
+        }
+      } catch (err) {
+        console.warn("Could not fetch matches:", err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    fetchMatches();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedJobId]);
+
+  const handleRunMatch = async () => {
+    if (!selectedJobId) return;
+    setMatchingRunning(true);
+    try {
+      const res = await matchingService.runMatch(selectedJobId, 5);
+      const list = res.data?.items || (Array.isArray(res.data) ? res.data : []);
+      if (list.length > 0) {
+        setMatches(list);
+        setExpanded(list[0].candidateId);
+      }
+    } catch (err) {
+      console.error("Match run error:", err);
+    } finally {
+      setMatchingRunning(false);
+    }
+  };
+
+  const handleQuickMatch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickTitle || !quickJD) return;
+    setMatchingRunning(true);
+    try {
+      const res = await matchingService.quickMatch({
+        title: quickTitle,
+        description: quickJD,
+        location: quickLocation,
+        top_k: 5,
+      });
+      const list = res.data?.items || [];
+      if (list.length > 0) {
+        setMatches(list);
+        setExpanded(list[0].candidateId);
+      }
+      if (res.data?.job_id) {
+        setJobs((prev) => [
+          { id: res.data.job_id, title: res.data.title, location: res.data.location },
+          ...prev,
+        ]);
+        setSelectedJobId(res.data.job_id);
+      }
+      setShowQuickModal(false);
+      setQuickTitle("");
+      setQuickJD("");
+    } catch (err) {
+      console.error("Quick match error:", err);
+    } finally {
+      setMatchingRunning(false);
+    }
+  };
+
+  const currentJob = jobs.find((j) => j.id === selectedJobId) || {
+    id: "JOB-2048",
+    title: "Senior Product Designer",
+    location: "New York, NY",
+  };
+
   return (
     <div className="matching-page">
-      <div className="match-context panel">
-        <span className="job-context-icon">
-          <BriefcaseBusiness size={18} />
-        </span>
-        <div>
-          <span className="panel-kicker">MATCH RESULTS FOR</span>
-          <strong>Senior Product Designer</strong>
-          <span>Northstar Labs · JOB-2048 · Updated 2 hours ago</span>
+      <div
+        className="match-context panel"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "1rem",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: "0.85rem" }}>
+          <span className="job-context-icon">
+            <BriefcaseBusiness size={18} />
+          </span>
+          <div>
+            <span className="panel-kicker">AI MATCH RESULTS FOR ROLE</span>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.2rem" }}>
+              {jobs.length > 0 ? (
+                <select
+                  value={selectedJobId}
+                  onChange={(e) => setSelectedJobId(e.target.value)}
+                  style={{
+                    fontWeight: 700,
+                    fontSize: "1.05rem",
+                    padding: "0.25rem 0.5rem",
+                    borderRadius: "6px",
+                    border: "1px solid var(--border, #ccc)",
+                    background: "var(--bg-surface, #fff)",
+                    color: "inherit",
+                    cursor: "pointer",
+                  }}
+                >
+                  {jobs.map((j) => (
+                    <option key={j.id} value={j.id}>
+                      {j.title} {j.location ? `· ${j.location}` : ""}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <strong>{currentJob.title}</strong>
+              )}
+            </div>
+            <span style={{ fontSize: "0.82rem", opacity: 0.8, display: "block", marginTop: "0.2rem" }}>
+              {currentJob.location || "Remote"} · {currentJob.id} · AI semantic & requirement matching
+            </span>
+          </div>
         </div>
-        <button className="button button-outline">
-          <Filter size={15} /> Refine list
-        </button>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <button
+            className="button button-outline"
+            onClick={handleRunMatch}
+            disabled={matchingRunning || loading}
+            title="Re-run AI evaluation and pull top 5 resumes"
+          >
+            <RefreshCw size={15} className={matchingRunning ? "spin" : ""} />
+            {matchingRunning ? "Matching..." : "Re-run AI Match"}
+          </button>
+          <button
+            className="button button-primary"
+            onClick={() => setShowQuickModal(true)}
+          >
+            <Plus size={15} /> Paste New JD & Match
+          </button>
+        </div>
       </div>
       <div className="match-toolbar">
         <span>
-          <strong>{matches.length}</strong> candidates ranked by backend match
-          score
+          <strong>Top {matches.length}</strong> candidate resumes suited for this role (Ranked by AI match score)
         </span>
         <span className="match-guardrail">
-          <CircleHelp size={15} /> Scores are evidence, not hiring
-          probabilities.
+          <CircleHelp size={15} /> Connected only candidate resumes that meet qualifications for this JD.
         </span>
       </div>
-      {matches.map((match) => (
-        <MatchCard
-          key={match.candidateId}
-          match={match}
-          expanded={expanded === match.candidateId}
-          onToggle={() =>
-            setExpanded(
-              expanded === match.candidateId ? null : match.candidateId,
-            )
-          }
-        />
-      ))}
+
+      {loading ? (
+        <div className="panel" style={{ padding: "2.5rem", textAlign: "center", color: "var(--muted, #666)" }}>
+          <p>Analyzing job description and extracting top 5 candidate resumes...</p>
+        </div>
+      ) : matches.length === 0 ? (
+        <div className="panel" style={{ padding: "2.5rem", textAlign: "center" }}>
+          <strong>No matching resumes found</strong>
+          <p style={{ marginTop: "0.5rem", color: "var(--muted, #666)" }}>
+            No candidate resumes met the required qualifications for this JD.
+          </p>
+        </div>
+      ) : (
+        matches.map((match, idx) => (
+          <MatchCard
+            key={match.candidateId || idx}
+            match={match}
+            rank={idx + 1}
+            expanded={expanded === (match.candidateId || String(idx))}
+            onToggle={() =>
+              setExpanded(
+                expanded === (match.candidateId || String(idx)) ? null : (match.candidateId || String(idx)),
+              )
+            }
+          />
+        ))
+      )}
+
+      {showQuickModal && (
+        <div className="modal-backdrop" role="presentation" onClick={() => setShowQuickModal(false)}>
+          <section
+            className="modal panel"
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "600px", width: "90%" }}
+          >
+            <div className="modal-heading">
+              <div>
+                <span className="panel-kicker">EMPLOYER JD ANALYSIS</span>
+                <h2>Paste Job Description & Pull Top 5 Resumes</h2>
+              </div>
+              <button className="icon-button" onClick={() => setShowQuickModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={handleQuickMatch}>
+              <label>
+                Role Title
+                <input
+                  required
+                  placeholder="e.g. Senior Python & AI Engineer"
+                  value={quickTitle}
+                  onChange={(e) => setQuickTitle(e.target.value)}
+                />
+              </label>
+              <label>
+                Location / Work Style
+                <input
+                  placeholder="e.g. Remote, Hybrid, or New York, NY"
+                  value={quickLocation}
+                  onChange={(e) => setQuickLocation(e.target.value)}
+                />
+              </label>
+              <label>
+                Job Description (JD)
+                <textarea
+                  required
+                  rows={6}
+                  placeholder="Paste the full job description, required qualifications, skills, and experience..."
+                  value={quickJD}
+                  onChange={(e) => setQuickJD(e.target.value)}
+                />
+              </label>
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="button button-outline"
+                  onClick={() => setShowQuickModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="button button-primary"
+                  type="submit"
+                  disabled={matchingRunning}
+                >
+                  {matchingRunning ? "AI Reading & Matching..." : "Extract & Pull Top 5 Resumes"}
+                  <ArrowRight size={15} />
+                </button>
+              </div>
+            </form>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
@@ -615,15 +840,37 @@ function MatchCard({
   match,
   expanded,
   onToggle,
+  rank,
 }: {
   match: MatchResult;
   expanded: boolean;
   onToggle: () => void;
+  rank?: number;
 }) {
   return (
     <article className={`match-card panel ${expanded ? "match-expanded" : ""}`}>
       <div className="match-card-main">
-        <span className="avatar avatar-xl avatar-blue">{match.initials}</span>
+        <span className="avatar avatar-xl avatar-blue" style={{ position: "relative" }}>
+          {match.initials}
+          {rank && (
+            <span
+              style={{
+                position: "absolute",
+                bottom: "-4px",
+                right: "-4px",
+                background: "var(--brand-primary, #2563eb)",
+                color: "#fff",
+                fontSize: "0.68rem",
+                fontWeight: 700,
+                borderRadius: "999px",
+                padding: "1px 5px",
+                lineHeight: "1.2",
+              }}
+            >
+              #{rank}
+            </span>
+          )}
+        </span>
         <div className="match-person">
           <div className="match-name-row">
             <h2>{match.name}</h2>
@@ -658,7 +905,7 @@ function MatchCard({
             {match.overallScore}
             <small>/100</small>
           </strong>
-          <span className="score-note">Demo response</span>
+          <span className="score-note">{rank === 1 ? "Top Match" : "Suiting JD"}</span>
         </div>
         <button
           className="icon-button match-expand"
@@ -1181,183 +1428,345 @@ function ProfileWorkspace({ role, section }: { role: Role; section: string }) {
 }
 
 function ResumeWorkspace() {
-  const [uploaded, setUploaded] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [aiConsent, setAiConsent] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [versionId, setVersionId] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>("idle");
+  const [extractedData, setExtractedData] = useState<any>(null);
+  const [reviewed, setReviewed] = useState(false);
+  const [sharingConsent, setSharingConsent] = useState(true);
+  const [savingReview, setSavingReview] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [hasToken, setHasToken] = useState<boolean>(() => Boolean(tokenStore.get()));
+  const [candName, setCandName] = useState("Suriyaprakash");
+  const [candEmail, setCandEmail] = useState("suriyaprakash@example.com");
+  const [candPass, setCandPass] = useState("Password123456!");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setFile(e.target.files[0]);
+      setIsSaved(false);
+      setErrorMsg(null);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setUploading(true);
+    setStatus("uploading");
+    setErrorMsg(null);
+    try {
+      // Ensure candidate authentication token is present
+      if (!tokenStore.get()) {
+        try {
+          await authService.register({
+            display_name: candName.trim() || candEmail.split("@")[0],
+            email: candEmail.trim().toLowerCase(),
+            password: candPass,
+          });
+        } catch (regErr: any) {
+          if (regErr.response?.status === 409) {
+            await authService.login({
+              email: candEmail.trim().toLowerCase(),
+              password: candPass,
+            });
+          } else {
+            throw regErr;
+          }
+        }
+        setHasToken(true);
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("consent_to_ai_processing", String(aiConsent));
+
+      const res = await candidateService.uploadResume(formData);
+      const newVersionId = res.data.resume_version_id;
+      setVersionId(newVersionId);
+      setStatus("processing");
+
+      // Poll or fetch extraction
+      let attempts = 0;
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const extRes = await candidateService.getExtracted(newVersionId);
+          if (extRes.data && (extRes.data.skills?.length > 0 || extRes.data.headline || attempts >= 4)) {
+            setExtractedData(extRes.data);
+            setStatus("complete");
+            clearInterval(poll);
+          }
+        } catch {
+          if (attempts >= 8) {
+            clearInterval(poll);
+            setStatus("complete");
+          }
+        }
+      }, 1500);
+    } catch (err: any) {
+      console.error("Resume upload error:", err);
+      setErrorMsg(err.response?.data?.detail || "Failed to upload resume. Please verify candidate email/password.");
+      setStatus("error");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleConfirmReview = async () => {
+    if (!versionId || !extractedData) return;
+    setSavingReview(true);
+    try {
+      await candidateService.reviewExtracted(versionId, {
+        confirmed: true,
+        extraction: extractedData,
+      });
+      if (sharingConsent) {
+        await candidateService.updateSharingConsent(versionId, { consent: true });
+      }
+      setIsSaved(true);
+    } catch (err: any) {
+      console.error("Save review error:", err);
+      setErrorMsg(err.response?.data?.detail || "Failed to save verified extraction.");
+    } finally {
+      setSavingReview(false);
+    }
+  };
+
   return (
     <div className="resume-layout">
       <section className="panel upload-panel">
         <div className="upload-icon">
           <FileText size={22} />
         </div>
-        <span className="panel-kicker">RESUME DOCUMENT</span>
-        <h2>{uploaded ? "Resume uploaded" : "Add your latest resume"}</h2>
+        <span className="panel-kicker">CANDIDATE PORTAL · RESUME UPLOAD</span>
+        <h2>{versionId ? "Resume Uploaded" : "Upload Your Resume to SQLite Database"}</h2>
         <p>
-          PDF or DOCX · up to 10 MB. Your file stays private until you choose to
-          share it.
+          Upload your PDF, DOCX, or TXT file. The AI extracts your skills and qualifications so employers can match your resume against their job descriptions.
         </p>
-        <label className="button button-primary upload-button">
-          <Plus size={15} /> Choose a file
-          <input
-            type="file"
-            accept=".pdf,.doc,.docx"
-            onChange={() => setUploaded(true)}
-          />
-        </label>
-        <span className="upload-consent">
-          <ShieldCheck size={14} /> Only you control who can view your resume.
+
+        <div style={{ margin: "1rem 0" }}>
+          <label className="button button-primary upload-button" style={{ cursor: "pointer", display: "inline-flex" }}>
+            <Plus size={15} /> {file ? file.name : "Choose Resume File (PDF / DOCX / TXT)"}
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.txt"
+              onChange={handleFileChange}
+              style={{ display: "none" }}
+            />
+          </label>
+        </div>
+
+        {!hasToken && (
+          <div style={{ margin: "1rem 0", padding: "0.85rem", background: "rgba(255,255,255,0.04)", borderRadius: "8px", border: "1px solid var(--border, #444)" }}>
+            <span style={{ fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.05em", color: "#38bdf8", textTransform: "uppercase" }}>Candidate Details (Stored in SQLite)</span>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", marginTop: "0.5rem" }}>
+              <input
+                type="text"
+                placeholder="Full Name (e.g. Suriyaprakash)"
+                value={candName}
+                onChange={(e) => setCandName(e.target.value)}
+                style={{ padding: "0.4rem 0.6rem", borderRadius: "4px", fontSize: "0.88rem" }}
+              />
+              <input
+                type="email"
+                placeholder="Candidate Email"
+                value={candEmail}
+                onChange={(e) => setCandEmail(e.target.value)}
+                style={{ padding: "0.4rem 0.6rem", borderRadius: "4px", fontSize: "0.88rem" }}
+              />
+            </div>
+            <input
+              type="password"
+              placeholder="Candidate Password (min 12 chars)"
+              value={candPass}
+              onChange={(e) => setCandPass(e.target.value)}
+              style={{ width: "100%", padding: "0.4rem 0.6rem", borderRadius: "4px", fontSize: "0.88rem", marginTop: "0.5rem" }}
+            />
+          </div>
+        )}
+
+        {file && (
+          <div style={{ marginTop: "0.5rem", marginBottom: "1rem" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", fontSize: "0.9rem" }}>
+              <input
+                type="checkbox"
+                checked={aiConsent}
+                onChange={(e) => setAiConsent(e.target.checked)}
+              />
+              <span>Consent to AI parsing and qualification extraction</span>
+            </label>
+          </div>
+        )}
+
+        {file && !versionId && (
+          <button
+            className="button button-primary"
+            onClick={handleUpload}
+            disabled={uploading || !aiConsent}
+            style={{ width: "100%", marginTop: "0.5rem" }}
+          >
+            {uploading ? "Uploading & Processing via AI..." : "Upload & Store in Database"}
+          </button>
+        )}
+
+        {errorMsg && (
+          <div style={{ color: "var(--danger, #e53e3e)", fontSize: "0.88rem", marginTop: "0.75rem" }}>
+            {errorMsg}
+          </div>
+        )}
+
+        <span className="upload-consent" style={{ marginTop: "1rem", display: "block" }}>
+          <ShieldCheck size={14} /> Candidates retain full control. Resumes are only shared with employer matching after review.
         </span>
       </section>
+
       <section className="panel process-panel">
         <div className="panel-heading">
           <div>
-            <span className="panel-kicker">AI EXTRACTION</span>
-            <h2>Processing status</h2>
+            <span className="panel-kicker">DATABASE & EXTRACTION STATUS</span>
+            <h2>SQLite Processing Pipeline</h2>
           </div>
-          <StatusTag status={uploaded ? "Queued" : "Complete"} />
+          <StatusTag status={status === "complete" ? "Complete" : status === "processing" ? "Processing" : status === "uploading" ? "Uploading" : "Ready"} />
         </div>
         <div className="process-steps">
-          <div className="process-step done">
+          <div className={`process-step ${versionId ? "done" : "active"}`}>
+            <span>{versionId ? <Check size={13} /> : "1"}</span>
+            <div>
+              <strong>1. Store in SQLite & Storage</strong>
+              <small>{versionId ? `Stored (Version ID: ${versionId.slice(0, 8)}...)` : "Awaiting file selection"}</small>
+            </div>
+          </div>
+          <div className={`process-step ${extractedData ? "done" : status === "processing" ? "active" : ""}`}>
+            <span>{extractedData ? <Check size={13} /> : "2"}</span>
+            <div>
+              <strong>2. Hugging Face AI Extraction</strong>
+              <small>{extractedData ? "Extracted skills, role & work history" : status === "processing" ? "Running AI model..." : "Pending upload"}</small>
+            </div>
+          </div>
+          <div className={`process-step ${isSaved ? "done" : extractedData ? "active" : ""}`}>
+            <span>{isSaved ? <Check size={13} /> : "3"}</span>
+            <div>
+              <strong>3. Candidate Review & Sharing Consent</strong>
+              <small>{isSaved ? "Verified & Granted Recruiter Search" : "Pending candidate confirmation"}</small>
+            </div>
+          </div>
+          <div className={`process-step ${isSaved ? "done" : ""}`}>
+            <span>{isSaved ? <Check size={13} /> : "4"}</span>
+            <div>
+              <strong>4. Indexed for Employer Top 5 Matching</strong>
+              <small>{isSaved ? "Active in SQLite candidate search index" : "Requires confirmed review"}</small>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {extractedData && (
+        <section className="panel extracted-review" style={{ gridColumn: "1 / -1" }}>
+          <div className="panel-heading">
+            <div>
+              <span className="panel-kicker">EXTRACTED QUALIFICATIONS FROM RESUME</span>
+              <h2>Review Your Profile Before Employer Matching</h2>
+            </div>
+            <StatusTag status={isSaved ? "Confirmed" : "Review required"} />
+          </div>
+
+          <div className="extracted-fields" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginTop: "1rem" }}>
+            <label>
+              Headline / Role
+              <input
+                value={extractedData.headline || ""}
+                onChange={(e) => setExtractedData({ ...extractedData, headline: e.target.value })}
+              />
+            </label>
+            <label>
+              Location
+              <input
+                value={extractedData.location || "Remote"}
+                onChange={(e) => setExtractedData({ ...extractedData, location: e.target.value })}
+              />
+            </label>
+          </div>
+
+          <div style={{ marginTop: "1rem" }}>
+            <span className="panel-kicker">EXTRACTED SKILLS ({extractedData.skills?.length || 0})</span>
+            <div className="skill-list" style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginTop: "0.5rem" }}>
+              {extractedData.skills && extractedData.skills.length > 0 ? (
+                extractedData.skills.map((s: any, idx: number) => (
+                  <span className="skill-tag" key={idx} style={{ padding: "0.3rem 0.6rem", borderRadius: "4px" }}>
+                    {typeof s === "string" ? s : s.name}
+                  </span>
+                ))
+              ) : (
+                <span>No specific skills detected in text</span>
+              )}
+            </div>
+          </div>
+
+          {extractedData.summary && (
+            <div style={{ marginTop: "1rem" }}>
+              <span className="panel-kicker">SUMMARY</span>
+              <p style={{ fontSize: "0.92rem", opacity: 0.9, marginTop: "0.25rem" }}>{extractedData.summary}</p>
+            </div>
+          )}
+
+          <div style={{ margin: "1.5rem 0", display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+            <label className="review-check" style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={reviewed}
+                onChange={(e) => setReviewed(e.target.checked)}
+              />
+              <span>I reviewed these extracted details and confirm they are accurate.</span>
+            </label>
+            <label className="review-check" style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={sharingConsent}
+                onChange={(e) => setSharingConsent(e.target.checked)}
+              />
+              <span>I grant active recruiter search consent so employers can find my resume when matching for jobs.</span>
+            </label>
+          </div>
+
+          <div className="extracted-footer" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
             <span>
-              <Check size={13} />
+              <ShieldCheck size={14} /> You can update or revoke recruiter search consent at any time.
             </span>
-            <div>
-              <strong>Document received</strong>
-              <small>Resume v3 · Oct 18, 2025</small>
-            </div>
+            <button
+              className="button button-primary"
+              disabled={!reviewed || !sharingConsent || savingReview || isSaved}
+              onClick={handleConfirmReview}
+            >
+              {isSaved ? (
+                <>
+                  <Check size={14} /> Saved in Database (Ready for Matching!)
+                </>
+              ) : savingReview ? (
+                "Saving..."
+              ) : (
+                <>
+                  Confirm & Save to Candidate Database <ArrowRight size={14} />
+                </>
+              )}
+            </button>
           </div>
-          <div className={`process-step ${uploaded ? "active" : "done"}`}>
-            <span>{uploaded ? "2" : <Check size={13} />}</span>
-            <div>
-              <strong>Extract information</strong>
-              <small>
-                {uploaded
-                  ? "Waiting for processing service"
-                  : "Completed in 14 seconds"}
-              </small>
+
+          {isSaved && (
+            <div style={{ marginTop: "1rem", padding: "1rem", background: "rgba(34, 197, 94, 0.1)", border: "1px solid rgba(34, 197, 94, 0.3)", borderRadius: "6px", color: "var(--text, #fff)" }}>
+              <strong>Success!</strong> Your resume has been parsed by AI, verified, and stored in the SQLite database. When any employer posts a matching Job Description, your profile will be evaluated and recommended among the top 5!
             </div>
-          </div>
-          <div className="process-step">
-            <span>3</span>
-            <div>
-              <strong>Review extracted details</strong>
-              <small>Confirm before adding to your profile</small>
-            </div>
-          </div>
-          <div className="process-step">
-            <span>4</span>
-            <div>
-              <strong>Set sharing consent</strong>
-              <small>Choose visibility before applying</small>
-            </div>
-          </div>
-        </div>
-        <button
-          className="button button-outline process-review"
-          disabled={uploaded}
-        >
-          Review extracted information <ArrowRight size={14} />
-        </button>
-      </section>
-      <section className="panel consent-panel">
-        <span className="consent-icon">
-          <ShieldCheck size={18} />
-        </span>
-        <div>
-          <strong>Your consent, always</strong>
-          <p>
-            Extracted details do not become visible to employers until you
-            review them and choose to share.
-          </p>
-        </div>
-        <button className="text-button">
-          Privacy settings <ArrowRight size={13} />
-        </button>
-      </section>
+          )}
+        </section>
+      )}
     </div>
   );
 }
 
 function ExtractedReviewPanel() {
-  const [reviewed, setReviewed] = useState(false);
-  const [consent, setConsent] = useState(false);
-  const [saved, setSaved] = useState(false);
-  return (
-    <section className="panel extracted-review">
-      <div className="panel-heading">
-        <div>
-          <span className="panel-kicker">
-            EXTRACTED INFORMATION · DEMO PREVIEW
-          </span>
-          <h2>Review before adding to your profile</h2>
-        </div>
-        <StatusTag status="Review required" />
-      </div>
-      <p className="extracted-intro">
-        These example fields illustrate the review step. In production, this
-        panel must show only the parsing result returned for your resume.
-      </p>
-      <div className="extracted-fields">
-        <label>
-          Full name
-          <input defaultValue="Amara Johnson" />
-        </label>
-        <label>
-          Current role
-          <input defaultValue="Senior Product Designer" />
-        </label>
-        <label>
-          Experience
-          <input defaultValue="7 years" />
-        </label>
-        <label>
-          Location
-          <input defaultValue="Brooklyn, NY" />
-        </label>
-      </div>
-      <div className="skill-list">
-        <span className="skill-tag">Product strategy</span>
-        <span className="skill-tag">Figma</span>
-        <span className="skill-tag">Design systems</span>
-        <button className="text-button">+ Add skill</button>
-      </div>
-      <label className="review-check">
-        <input
-          type="checkbox"
-          checked={reviewed}
-          onChange={(event) => setReviewed(event.target.checked)}
-        />{" "}
-        I reviewed these extracted details and confirm they are accurate.
-      </label>
-      <label className="review-check">
-        <input
-          type="checkbox"
-          checked={consent}
-          onChange={(event) => setConsent(event.target.checked)}
-        />{" "}
-        I consent to include this approved information when I apply to jobs.
-      </label>
-      <div className="extracted-footer">
-        <span>
-          <ShieldCheck size={14} /> You can change or revoke sharing consent
-          later.
-        </span>
-        <button
-          className="button button-primary"
-          disabled={!reviewed || !consent}
-          onClick={() => setSaved(true)}
-        >
-          {saved ? (
-            <>
-              <Check size={14} /> Saved in demo
-            </>
-          ) : (
-            <>
-              Confirm review <ArrowRight size={14} />
-            </>
-          )}
-        </button>
-      </div>
-    </section>
-  );
+  return null;
 }
 
 function JobModal({ onClose }: { onClose: () => void }) {

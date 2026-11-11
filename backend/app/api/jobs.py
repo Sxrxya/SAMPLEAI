@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from pydantic import Field
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
@@ -25,7 +26,9 @@ from app.schemas import (
     JobReviewRequest,
     MatchResultResponse,
     MatchRunRequest,
+    StrictModel,
 )
+from app.services.matching import execute_job_matching
 from app.services.queue import enqueue_job
 
 router = APIRouter(tags=["jobs and matching"])
@@ -400,4 +403,135 @@ def get_match_run(
             ).model_dump()
             for result in results
         ],
+    }
+
+
+@router.get("/recruiter/jobs/{job_id}/matches")
+async def get_job_matches(
+    job_id: str,
+    top_k: int = Query(default=5, ge=1, le=10),
+    refresh: bool = Query(default=False),
+    recruiter: User = Depends(require_roles("recruiter")),
+    db: Session = Depends(get_db),
+) -> dict:
+    job, _ = _organization_job(db, recruiter.id, job_id)
+    matches = await execute_job_matching(
+        db=db,
+        job_id=job.id,
+        top_k=top_k,
+        recruiter_id=recruiter.id,
+    )
+    return {
+        "job_id": job.id,
+        "job_title": job.title,
+        "location": job.location,
+        "items": matches,
+        "total": len(matches),
+    }
+
+
+@router.post("/recruiter/jobs/{job_id}/matches/run")
+async def trigger_job_matches(
+    job_id: str,
+    top_k: int = Query(default=5, ge=1, le=10),
+    recruiter: User = Depends(require_roles("recruiter")),
+    db: Session = Depends(get_db),
+) -> dict:
+    job, _ = _organization_job(db, recruiter.id, job_id)
+    matches = await execute_job_matching(
+        db=db,
+        job_id=job.id,
+        top_k=top_k,
+        recruiter_id=recruiter.id,
+    )
+    return {
+        "job_id": job.id,
+        "job_title": job.title,
+        "items": matches,
+        "total": len(matches),
+    }
+
+
+@router.get("/recruiter/jobs/{job_id}/matches/{candidate_id}/evidence")
+def get_candidate_match_evidence(
+    job_id: str,
+    candidate_id: str,
+    recruiter: User = Depends(require_roles("recruiter")),
+    db: Session = Depends(get_db),
+) -> dict:
+    job, _ = _organization_job(db, recruiter.id, job_id)
+    result = db.scalar(
+        select(MatchResult)
+        .join(MatchRun, MatchRun.id == MatchResult.match_run_id)
+        .join(JobVersion, JobVersion.id == MatchRun.job_version_id)
+        .where(
+            JobVersion.job_id == job.id,
+            MatchResult.candidate_id == candidate_id,
+        )
+        .order_by(MatchResult.created_at.desc())
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Evidence not found for candidate")
+    return {
+        "candidate_id": candidate_id,
+        "job_id": job.id,
+        "rank": result.rank,
+        "relevance_score": result.relevance_score,
+        "dimensions": result.dimensions_json,
+        "missing_requirements": result.missing_requirements_json,
+        "evidence": result.evidence_json,
+    }
+
+
+class QuickMatchRequest(StrictModel):
+    title: str = Field(min_length=2, max_length=200)
+    description: str = Field(min_length=20, max_length=30000)
+    location: str | None = Field(default=None, max_length=160)
+    top_k: int = Field(default=5, ge=1, le=10)
+
+
+@router.post("/employer/jobs/quick-match")
+async def quick_match_jd(
+    payload: QuickMatchRequest,
+    recruiter: User = Depends(require_roles("recruiter")),
+    db: Session = Depends(get_db),
+) -> dict:
+    membership = db.scalar(
+        select(OrganizationMembership).where(OrganizationMembership.user_id == recruiter.id)
+    )
+    if membership is None:
+        raise HTTPException(status_code=403, detail="Recruiter has no organization")
+
+    job = Job(
+        organization_id=membership.organization_id,
+        created_by=recruiter.id,
+        title=payload.title.strip(),
+        location=payload.location,
+        status="active",
+    )
+    db.add(job)
+    db.flush()
+
+    version = JobVersion(
+        job_id=job.id,
+        version_number=1,
+        description=payload.description,
+        status="approved",
+        approved_at=utc_now(),
+    )
+    db.add(version)
+    db.commit()
+
+    matches = await execute_job_matching(
+        db=db,
+        job_id=job.id,
+        top_k=payload.top_k,
+        recruiter_id=recruiter.id,
+    )
+    return {
+        "job_id": job.id,
+        "title": job.title,
+        "location": job.location,
+        "items": matches,
+        "total": len(matches),
     }

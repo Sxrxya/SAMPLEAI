@@ -25,11 +25,14 @@ export const authService = {
     }
   },
   async register(payload: {
-    name: string;
+    display_name: string;
     email: string;
     password: string;
-    role: string;
   }) {
-    return apiClient.post("/auth/register", payload);
+    const { data } = await apiClient.post<any>("/auth/register", payload);
+    if (data?.access_token) {
+      tokenStore.set(data.access_token);
+    }
+    return data;
   },
 };

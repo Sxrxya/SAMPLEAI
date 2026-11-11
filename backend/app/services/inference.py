@@ -1,6 +1,7 @@
 import asyncio
 import json
 import math
+import re
 
 from huggingface_hub import AsyncInferenceClient
 from huggingface_hub.errors import HfHubHTTPError, InferenceTimeoutError
@@ -17,12 +18,30 @@ class InferenceProviderError(RuntimeError):
     pass
 
 
+def _parse_json(raw: str) -> dict:
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+        cleaned = re.sub(r"\s*```$", "", cleaned)
+        cleaned = cleaned.strip()
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        cleaned = cleaned[start : end + 1]
+    return json.loads(cleaned)
+
+
 class HostedInferenceClient:
     """Hugging Face hosted inference adapter; no local model fallback."""
 
     def __init__(self, settings: Settings | None = None) -> None:
         self.settings = settings or get_settings()
-        self._semaphore = asyncio.Semaphore(self.settings.inference_max_concurrency)
+        self._semaphore: asyncio.Semaphore | None = None
+
+    def _get_semaphore(self) -> asyncio.Semaphore:
+        if self._semaphore is None:
+            self._semaphore = asyncio.Semaphore(self.settings.inference_max_concurrency)
+        return self._semaphore
 
     def _ensure_configured(self) -> None:
         self.settings.validate_inference()
@@ -42,21 +61,38 @@ class HostedInferenceClient:
         self._ensure_configured()
         client = self._client()
         try:
-            async with self._semaphore:
-                response = await client.chat_completion(
-                    model=self.settings.inference_chat_model,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": source_text},
-                    ],
-                    temperature=0,
-                    max_tokens=3000,
-                    response_format={"type": "json", "value": schema},
-                )
+            async with self._get_semaphore():
+                try:
+                    response = await client.chat_completion(
+                        model=self.settings.inference_chat_model,
+                        messages=[
+                            {"role": "system", "content": f"{system_prompt}\nOutput MUST be valid raw JSON."},
+                            {"role": "user", "content": source_text},
+                        ],
+                        temperature=0,
+                        max_tokens=3000,
+                        response_format={"type": "json", "value": schema},
+                    )
+                except Exception:
+                    response = await client.chat_completion(
+                        model=self.settings.inference_chat_model,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    f"{system_prompt}\nReturn ONLY a valid JSON object matching "
+                                    f"this schema: {json.dumps(schema)}"
+                                ),
+                            },
+                            {"role": "user", "content": source_text},
+                        ],
+                        temperature=0,
+                        max_tokens=3000,
+                    )
             raw = response.choices[0].message.content
             if not isinstance(raw, str):
                 raise ValueError("provider returned no JSON content")
-            return json.loads(raw), str(
+            return _parse_json(raw), str(
                 response.model or self.settings.inference_chat_model
             )
         except (
@@ -67,7 +103,7 @@ class HostedInferenceClient:
             TypeError,
             ValueError,
         ) as exc:
-            raise InferenceProviderError("Hugging Face chat request failed") from exc
+            raise InferenceProviderError(f"Hugging Face chat request failed: {exc}") from exc
         finally:
             await client.close()
 
@@ -100,10 +136,11 @@ class HostedInferenceClient:
         if not self.settings.inference_embedding_model:
             raise InferenceUnavailable("Embedding model is not configured")
         client = self._client()
-        async with self._semaphore:
+        async with self._get_semaphore():
             try:
+                truncated_text = text[:2000].strip() or "empty"
                 output = await client.feature_extraction(
-                    text,
+                    truncated_text,
                     model=self.settings.inference_embedding_model,
                 )
                 vector = output.tolist() if hasattr(output, "tolist") else output
@@ -123,6 +160,6 @@ class HostedInferenceClient:
                 TypeError,
                 ValueError,
             ) as exc:
-                raise InferenceProviderError("Hugging Face embedding request failed") from exc
+                raise InferenceProviderError(f"Hugging Face embedding request failed: {exc}") from exc
             finally:
                 await client.close()

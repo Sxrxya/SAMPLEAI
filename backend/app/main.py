@@ -64,6 +64,17 @@ async def http_error_handler(request: Request, exc: HTTPException) -> JSONRespon
     )
 
 
+@app.get("/")
+def root() -> dict:
+    return {
+        "message": "Tandem AI Recruitment Platform Backend API",
+        "status": "online",
+        "docs_url": "/docs",
+        "health": "/health",
+        "api_v1": "/api/v1",
+    }
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok"}

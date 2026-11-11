@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
@@ -55,6 +55,7 @@ def _upload_response(version: ResumeVersion, processing_job_id: str | None) -> R
 
 @router.post("", response_model=ResumeUploadResponse, status_code=202)
 async def upload_resume(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     consent_to_ai_processing: bool = Form(...),
     idempotency_header: str | None = Header(default=None, alias="Idempotency-Key"),
@@ -164,6 +165,12 @@ async def upload_resume(
         )
         db.commit()
         db.refresh(version)
+
+        # Trigger extraction immediately via background tasks so it processes automatically
+        if processing_job_id:
+            from app.worker import process_job
+            background_tasks.add_task(process_job, processing_job_id)
+
         return _upload_response(version, processing_job_id)
     except IntegrityError:
         db.rollback()
