@@ -16,3 +16,6 @@ backend/*.db-shm
 backend/*.db-wal
 .env
 .env.backup
+
+*.backup*
+*.backup_final

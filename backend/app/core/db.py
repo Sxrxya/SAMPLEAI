@@ -11,7 +11,19 @@ class Base(DeclarativeBase):
     pass
 
 
+def resolve_database_url(url: str) -> str:
+    if url.startswith("sqlite:///./data/"):
+        here_db = Path("./data/recruitment.db")
+        parent_db = Path("../data/recruitment.db")
+        if not here_db.exists() and parent_db.exists():
+            return f"sqlite:///{parent_db.resolve().as_posix()}"
+        elif here_db.exists():
+            return f"sqlite:///{here_db.resolve().as_posix()}"
+    return url
+
+
 def build_engine(database_url: str) -> Engine:
+    database_url = resolve_database_url(database_url)
     connect_args = (
         {"check_same_thread": False, "timeout": 30} if database_url.startswith("sqlite") else {}
     )

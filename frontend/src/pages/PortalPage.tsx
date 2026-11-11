@@ -998,72 +998,200 @@ function CandidateResumeUploader() {
 }
 
 /* ==========================================================================
-   ADMIN WORKSPACE - ESSENTIAL TELEMETRY (NO FLUFF)
+   ADMIN WORKSPACE - ESSENTIAL TELEMETRY, POOL MANAGEMENT & AI METRICS
    ========================================================================== */
 function AdminTelemetryWorkspace() {
+  const [adminTab, setAdminTab] = useState<"overview" | "candidates" | "recruiters" | "jobs" | "ai">("overview");
   const [stats, setStats] = useState({
     candidates: 25,
     recruiters: 3,
     jobs: 6,
     resumes: 25,
   });
+  const [candidateList, setCandidateList] = useState<any[]>([]);
+  const [recruiterList, setRecruiterList] = useState<any[]>([]);
+  const [jobList, setJobList] = useState<any[]>([]);
+  const [aiUsage, setAiUsage] = useState<any>(null);
 
   useEffect(() => {
-    // Fetch real metrics from backend
     apiClient.get("/admin/metrics").then((res) => {
       if (res.data) setStats(res.data);
     }).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (adminTab === "candidates") {
+      apiClient.get("/admin/candidates").then((res) => setCandidateList(res.data?.items || [])).catch(() => {});
+    } else if (adminTab === "recruiters") {
+      apiClient.get("/admin/recruiters").then((res) => setRecruiterList(res.data?.items || [])).catch(() => {});
+    } else if (adminTab === "jobs") {
+      apiClient.get("/admin/jobs").then((res) => setJobList(res.data?.items || [])).catch(() => {});
+    } else if (adminTab === "ai") {
+      apiClient.get("/admin/ai-usage").then((res) => setAiUsage(res.data)).catch(() => {});
+    }
+  }, [adminTab]);
+
   return (
-    <div style={{ maxWidth: "880px", margin: "32px auto", padding: "0 20px" }}>
+    <div style={{ maxWidth: "980px", margin: "32px auto", padding: "0 20px" }}>
       <div className="panel" style={{ padding: "28px", background: "#ffffff", borderRadius: "16px", border: "1px solid var(--line)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "8px" }}>
-          <div className="brand-mark" style={{ width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>t.</div>
-          <span style={{ fontSize: "0.84rem", fontWeight: 700, color: "#7D1128", textTransform: "uppercase", letterSpacing: "0.05em" }}>System Operations</span>
-        </div>
-        <h2 style={{ fontSize: "1.6rem", fontWeight: 700, color: "var(--ink)", margin: "0 0 20px" }}>Database & AI Infrastructure Status</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <div className="brand-mark" style={{ width: "32px", height: "32px", borderRadius: "8px", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700 }}>t.</div>
+            <span style={{ fontSize: "0.84rem", fontWeight: 700, color: "#7D1128", textTransform: "uppercase", letterSpacing: "0.05em" }}>System Operations</span>
+          </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "28px" }}>
-          <div style={{ background: "#faeff1", padding: "18px", borderRadius: "10px", border: "1px solid rgba(125, 17, 40, 0.15)" }}>
-            <div style={{ fontSize: "0.82rem", color: "var(--muted)", fontWeight: 600 }}>Total Candidates</div>
-            <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#7D1128", marginTop: "4px" }}>{stats.candidates}</div>
-            <div style={{ fontSize: "0.74rem", color: "#7D1128", marginTop: "2px" }}>Active in SQLite Pool</div>
-          </div>
-          <div style={{ background: "#F7F3EF", padding: "18px", borderRadius: "10px", border: "1px solid var(--line)" }}>
-            <div style={{ fontSize: "0.82rem", color: "var(--muted)", fontWeight: 600 }}>Active Employers</div>
-            <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{stats.recruiters}</div>
-            <div style={{ fontSize: "0.74rem", color: "var(--muted)", marginTop: "2px" }}>Independent Orgs</div>
-          </div>
-          <div style={{ background: "#F7F3EF", padding: "18px", borderRadius: "10px", border: "1px solid var(--line)" }}>
-            <div style={{ fontSize: "0.82rem", color: "var(--muted)", fontWeight: 600 }}>Confirmed JDs</div>
-            <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{stats.jobs}</div>
-            <div style={{ fontSize: "0.74rem", color: "var(--muted)", marginTop: "2px" }}>Extracted & Approved</div>
-          </div>
-          <div style={{ background: "#edf6f0", padding: "18px", borderRadius: "10px", border: "1px solid #c9e6d3" }}>
-            <div style={{ fontSize: "0.82rem", color: "#1e6b37", fontWeight: 600 }}>Search Index</div>
-            <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#1e6b37", marginTop: "4px" }}>25</div>
-            <div style={{ fontSize: "0.74rem", color: "#1e6b37", marginTop: "2px" }}>FTS5 Virtual Table</div>
+          <div style={{ display: "flex", gap: "6px", background: "#f1ebe7", padding: "4px", borderRadius: "8px" }}>
+            {(["overview", "candidates", "recruiters", "jobs", "ai"] as const).map((t) => (
+              <button
+                key={t}
+                style={{
+                  background: adminTab === t ? "#ffffff" : "transparent",
+                  color: adminTab === t ? "#7D1128" : "var(--muted)",
+                  fontWeight: adminTab === t ? 700 : 500,
+                  border: "none",
+                  borderRadius: "6px",
+                  padding: "6px 12px",
+                  fontSize: "0.82rem",
+                  cursor: "pointer",
+                  textTransform: "capitalize",
+                  boxShadow: adminTab === t ? "0 1px 3px rgba(0,0,0,0.08)" : "none",
+                }}
+                onClick={() => setAdminTab(t)}
+              >
+                {t === "ai" ? "AI Pipeline" : t}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div style={{ borderTop: "1px solid var(--line)", paddingTop: "20px" }}>
-          <h4 style={{ margin: "0 0 12px", fontSize: "0.95rem", fontWeight: 700 }}>Connected AI Models & Services</h4>
-          <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "0.86rem" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#f8f5f2", borderRadius: "8px" }}>
-              <span><strong>LLM Extraction Model:</strong> Qwen/Qwen2.5-72B-Instruct</span>
-              <span style={{ color: "#1e6b37", fontWeight: 600 }}>✓ Online (Hugging Face)</span>
+        {adminTab === "overview" && (
+          <div>
+            <h2 style={{ fontSize: "1.6rem", fontWeight: 700, color: "var(--ink)", margin: "0 0 20px" }}>Database & AI Infrastructure Status</h2>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px", marginBottom: "28px" }}>
+              <div style={{ background: "#faeff1", padding: "18px", borderRadius: "10px", border: "1px solid rgba(125, 17, 40, 0.15)" }}>
+                <div style={{ fontSize: "0.82rem", color: "var(--muted)", fontWeight: 600 }}>Total Candidates</div>
+                <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#7D1128", marginTop: "4px" }}>{stats.candidates}</div>
+                <div style={{ fontSize: "0.74rem", color: "#7D1128", marginTop: "2px" }}>Active in SQLite Pool</div>
+              </div>
+              <div style={{ background: "#F7F3EF", padding: "18px", borderRadius: "10px", border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: "0.82rem", color: "var(--muted)", fontWeight: 600 }}>Active Employers</div>
+                <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{stats.recruiters}</div>
+                <div style={{ fontSize: "0.74rem", color: "var(--muted)", marginTop: "2px" }}>Independent Orgs</div>
+              </div>
+              <div style={{ background: "#F7F3EF", padding: "18px", borderRadius: "10px", border: "1px solid var(--line)" }}>
+                <div style={{ fontSize: "0.82rem", color: "var(--muted)", fontWeight: 600 }}>Confirmed JDs</div>
+                <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--ink)", marginTop: "4px" }}>{stats.jobs}</div>
+                <div style={{ fontSize: "0.74rem", color: "var(--muted)", marginTop: "2px" }}>Extracted & Approved</div>
+              </div>
+              <div style={{ background: "#edf6f0", padding: "18px", borderRadius: "10px", border: "1px solid #c9e6d3" }}>
+                <div style={{ fontSize: "0.82rem", color: "#1e6b37", fontWeight: 600 }}>Search Index</div>
+                <div style={{ fontSize: "1.8rem", fontWeight: 800, color: "#1e6b37", marginTop: "4px" }}>25</div>
+                <div style={{ fontSize: "0.74rem", color: "#1e6b37", marginTop: "2px" }}>FTS5 Virtual Table</div>
+              </div>
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#f8f5f2", borderRadius: "8px" }}>
-              <span><strong>Embedding Model:</strong> sentence-transformers/all-MiniLM-L6-v2</span>
-              <span style={{ color: "#1e6b37", fontWeight: 600 }}>✓ Online (Hugging Face)</span>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#f8f5f2", borderRadius: "8px" }}>
-              <span><strong>Storage Engine:</strong> SQLite 3 (data/recruitment.db)</span>
-              <span style={{ color: "#1e6b37", fontWeight: 600 }}>✓ Read/Write Verified</span>
+
+            <div style={{ borderTop: "1px solid var(--line)", paddingTop: "20px" }}>
+              <h4 style={{ margin: "0 0 12px", fontSize: "0.95rem", fontWeight: 700 }}>Connected AI Models & Services</h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: "8px", fontSize: "0.86rem" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#f8f5f2", borderRadius: "8px" }}>
+                  <span><strong>LLM Extraction Model:</strong> Qwen/Qwen2.5-72B-Instruct</span>
+                  <span style={{ color: "#1e6b37", fontWeight: 600 }}>✓ Online (Hugging Face)</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#f8f5f2", borderRadius: "8px" }}>
+                  <span><strong>Embedding Model:</strong> sentence-transformers/all-MiniLM-L6-v2</span>
+                  <span style={{ color: "#1e6b37", fontWeight: 600 }}>✓ Online (Hugging Face)</span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", background: "#f8f5f2", borderRadius: "8px" }}>
+                  <span><strong>Storage Engine:</strong> SQLite 3 (data/recruitment.db)</span>
+                  <span style={{ color: "#1e6b37", fontWeight: 600 }}>✓ Read/Write Verified</span>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {adminTab === "candidates" && (
+          <div>
+            <h3 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>Registered Candidates ({candidateList.length})</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {candidateList.map((c) => (
+                <div key={c.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", border: "1px solid var(--line)", borderRadius: "8px" }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{c.display_name}</div>
+                    <div style={{ fontSize: "0.84rem", color: "var(--muted)" }}>{c.email}</div>
+                  </div>
+                  <span style={{ fontSize: "0.75rem", background: "#edf6f0", color: "#1e6b37", padding: "3px 8px", borderRadius: "999px", fontWeight: 600 }}>
+                    Active Candidate
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {adminTab === "recruiters" && (
+          <div>
+            <h3 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>Employer Organizations ({recruiterList.length})</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {recruiterList.map((r) => (
+                <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", border: "1px solid var(--line)", borderRadius: "8px" }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{r.name}</div>
+                    <div style={{ fontSize: "0.84rem", color: "var(--muted)" }}>Org ID: {r.id.slice(0, 8)}...</div>
+                  </div>
+                  <span style={{ fontSize: "0.75rem", background: "#faeff1", color: "#7D1128", padding: "3px 8px", borderRadius: "999px", fontWeight: 700, textTransform: "capitalize" }}>
+                    {r.status || "Verified"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {adminTab === "jobs" && (
+          <div>
+            <h3 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>Active Job Postings ({jobList.length})</h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {jobList.map((j) => (
+                <div key={j.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", border: "1px solid var(--line)", borderRadius: "8px" }}>
+                  <div>
+                    <div style={{ fontWeight: 700 }}>{j.title}</div>
+                    <div style={{ fontSize: "0.84rem", color: "var(--muted)" }}>{j.location || "Remote"} · ID: {j.id.slice(0, 8)}...</div>
+                  </div>
+                  <span style={{ fontSize: "0.75rem", background: "#edf6f0", color: "#1e6b37", padding: "3px 8px", borderRadius: "999px", fontWeight: 600, textTransform: "capitalize" }}>
+                    {j.status || "Active"}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {adminTab === "ai" && (
+          <div>
+            <h3 style={{ margin: "0 0 12px", fontSize: "1.2rem", fontWeight: 700 }}>AI Inference Telemetry</h3>
+            {aiUsage && (
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                <div style={{ padding: "14px", background: "#F7F3EF", borderRadius: "8px" }}>
+                  <div style={{ fontSize: "0.82rem", color: "var(--muted)" }}>Inference Provider</div>
+                  <div style={{ fontWeight: 700, marginTop: "4px" }}>{aiUsage.provider}</div>
+                </div>
+                <div style={{ padding: "14px", background: "#F7F3EF", borderRadius: "8px" }}>
+                  <div style={{ fontSize: "0.82rem", color: "var(--muted)" }}>Primary LLM</div>
+                  <div style={{ fontWeight: 700, marginTop: "4px" }}>{aiUsage.chat_model}</div>
+                </div>
+                <div style={{ padding: "14px", background: "#edf6f0", borderRadius: "8px" }}>
+                  <div style={{ fontSize: "0.82rem", color: "#1e6b37" }}>Successful AI Jobs</div>
+                  <div style={{ fontWeight: 800, fontSize: "1.4rem", color: "#1e6b37", marginTop: "4px" }}>{aiUsage.successful_requests}</div>
+                </div>
+                <div style={{ padding: "14px", background: "#faeff1", borderRadius: "8px" }}>
+                  <div style={{ fontSize: "0.82rem", color: "#7D1128" }}>Estimated Local Compute Cost</div>
+                  <div style={{ fontWeight: 800, fontSize: "1.4rem", color: "#7D1128", marginTop: "4px" }}>${aiUsage.estimated_cost_usd}</div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

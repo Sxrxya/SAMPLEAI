@@ -29,6 +29,121 @@ def get_admin_metrics(
     }
 
 
+@router.get("/candidates")
+def list_candidates(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    admin: User = Depends(require_roles("admin")),
+    db: Session = Depends(get_db),
+) -> dict:
+    del admin
+    query = select(User).where(User.role == "candidate")
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    users = db.scalars(
+        query.order_by(User.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    return {
+        "items": [
+            {
+                "id": u.id,
+                "email": u.email,
+                "display_name": u.display_name,
+                "is_active": u.is_active,
+                "created_at": u.created_at,
+            }
+            for u in users
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.get("/recruiters")
+def list_recruiters(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    admin: User = Depends(require_roles("admin")),
+    db: Session = Depends(get_db),
+) -> dict:
+    del admin
+    query = select(Organization)
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    orgs = db.scalars(
+        query.order_by(Organization.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    return {
+        "items": [
+            {
+                "id": o.id,
+                "name": o.name,
+                "status": o.status,
+                "created_at": o.created_at,
+            }
+            for o in orgs
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.get("/jobs")
+def list_admin_jobs(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    admin: User = Depends(require_roles("admin")),
+    db: Session = Depends(get_db),
+) -> dict:
+    del admin
+    query = select(Job)
+    total = db.scalar(select(func.count()).select_from(query.subquery())) or 0
+    jobs = db.scalars(
+        query.order_by(Job.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    ).all()
+    return {
+        "items": [
+            {
+                "id": j.id,
+                "organization_id": j.organization_id,
+                "title": j.title,
+                "location": j.location,
+                "status": j.status,
+                "created_at": j.created_at,
+            }
+            for j in jobs
+        ],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+@router.get("/ai-usage")
+def get_ai_usage_summary(
+    admin: User = Depends(require_roles("admin")),
+    db: Session = Depends(get_db),
+) -> dict:
+    del admin
+    total_jobs = db.scalar(select(func.count(ProcessingJob.id))) or 0
+    succeeded_jobs = (
+        db.scalar(select(func.count(ProcessingJob.id)).where(ProcessingJob.status == "succeeded")) or 0
+    )
+    failed_jobs = (
+        db.scalar(select(func.count(ProcessingJob.id)).where(ProcessingJob.status == "failed")) or 0
+    )
+    return {
+        "provider": "Hugging Face Inference API",
+        "chat_model": "Qwen/Qwen2.5-72B-Instruct",
+        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "total_requests": total_jobs,
+        "successful_requests": succeeded_jobs,
+        "failed_requests": failed_jobs,
+        "estimated_cost_usd": 0.00,  # Hugging Face Inference API is billed per token/plan, 0.00 local cost
+        "status": "operational",
+    }
+
+
 @router.get("/processing/jobs")
 def processing_jobs(
     page: int = Query(default=1, ge=1),
