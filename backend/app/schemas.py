@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -255,6 +255,23 @@ class ApplicationStatusUpdate(StrictModel):
 class VerificationDecision(StrictModel):
     decision: Literal["verified", "rejected"]
     reason: str | None = Field(default=None, max_length=1000)
+
+
+class TailoredInterviewQuestion(BaseModel):
+    topic: str
+    question: str
+    what_to_listen_for: str
+
+
+class RAGEvaluationPayload(BaseModel):
+    candidate_name: str
+    overall_match_score: float = Field(default=0.0, ge=0, le=100)
+    recommendation_verdict: Literal["STRONG_HIRE", "HIRE", "CONSIDER", "DO_NOT_RECOMMEND"] = "CONSIDER"
+    executive_summary: str
+    parameter_scores: dict[str, Any] = Field(default_factory=dict)
+    key_strengths: list[str] = Field(default_factory=list)
+    potential_risks: list[str] = Field(default_factory=list)
+    tailored_interview_questions: list[TailoredInterviewQuestion] = Field(default_factory=list)
 
 
 class PaginatedResponse(BaseModel):

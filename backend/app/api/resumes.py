@@ -100,12 +100,36 @@ async def upload_resume(
         if duplicate is not None:
             (settings.storage_root / storage_key).unlink(missing_ok=True)
             job = db.scalar(
-                select(ProcessingJob).where(
+                select(ProcessingJob)
+                .where(
                     ProcessingJob.entity_type == "resume_version",
                     ProcessingJob.entity_id == duplicate.id,
                     ProcessingJob.job_type == "resume_extract",
                 )
+                .order_by(ProcessingJob.created_at.desc())
             )
+            prev_extraction = db.scalar(
+                select(ResumeExtraction)
+                .where(ResumeExtraction.resume_version_id == duplicate.id)
+                .order_by(ResumeExtraction.created_at.desc())
+            )
+            should_reprocess = consent_to_ai_processing and (
+                job is None
+                or job.status in ["failed", "dead_letter", "blocked", "succeeded"]
+                or (prev_extraction and "Fallback" in str(prev_extraction.model_id))
+            )
+            if should_reprocess:
+                fresh_job = enqueue_job(
+                    db,
+                    entity_type="resume_version",
+                    entity_id=duplicate.id,
+                    job_type="resume_extract",
+                    idempotency_key=f"re-extract:{duplicate.id}:{uuid4().hex[:8]}",
+                )
+                db.commit()
+                from app.worker import process_job
+                background_tasks.add_task(process_job, fresh_job.id)
+                return _upload_response(duplicate, fresh_job.id)
             return _upload_response(duplicate, job.id if job else None)
 
         latest_version = db.scalar(

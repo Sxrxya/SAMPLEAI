@@ -133,16 +133,17 @@ async def _process_resume(
     version.status = "needs_review"
 
     try:
-        vector, embedding_model_id = await inference.embed(extraction.model_dump_json())
+        content_str = extraction.model_dump_json() if extraction is not None else json.dumps(extraction_dict)
+        vector, embedding_model_id = await inference.embed(content_str)
         _store_embedding(
             db,
             entity_type="resume_version",
             entity_id=version.id,
             vector=vector,
             model_id=embedding_model_id,
-            content=extraction.model_dump_json(),
+            content=content_str,
         )
-    except (InferenceUnavailable, InferenceProviderError):
+    except Exception:
         logger.warning("Embedding unavailable for resume version %s", version.id)
     mark_succeeded(db, job)
 

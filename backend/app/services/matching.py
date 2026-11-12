@@ -707,7 +707,7 @@ async def execute_job_matching(
     # Ensure JD requirements are extracted
     await ensure_job_analysis(db, job_version, inference)
 
-    return evaluate_candidates_for_job(
+    matches = evaluate_candidates_for_job(
         db=db,
         job_id=job_id,
         top_k=top_k,
@@ -715,4 +715,41 @@ async def execute_job_matching(
         match_run_id=match_run_id,
         scoring_config=scoring_config,
     )
+
+    # Conduct deep 6-parameter RAG evaluations for each top candidate
+    job_analysis = job_version.analysis_json or {}
+    for match_item in matches:
+        rv_id = match_item.get("resumeVersionId")
+        cand_record = db.scalar(
+            select(ResumeExtraction)
+            .where(ResumeExtraction.resume_version_id == rv_id)
+            .order_by(ResumeExtraction.created_at.desc())
+        )
+        cand_extraction = cand_record.extraction_json if cand_record else {}
+        try:
+            rag_eval, _ = await inference.evaluate_candidate_rag(job_analysis, cand_extraction)
+            match_item["ragEvaluation"] = rag_eval
+        except Exception:
+            from app.services.inference import synthesize_rag_evaluation
+            match_item["ragEvaluation"] = synthesize_rag_evaluation(cand_extraction, job_analysis)
+
+    # Persist RAG evaluation data into MatchResult records
+    if recruiter_id or match_run_id:
+        for match_item in matches:
+            mr = db.scalar(
+                select(MatchResult)
+                .join(MatchRun)
+                .where(
+                    MatchRun.job_version_id == job_version.id,
+                    MatchResult.candidate_id == match_item["candidateId"],
+                )
+                .order_by(MatchResult.created_at.desc())
+            )
+            if mr and mr.dimensions_json:
+                dims = dict(mr.dimensions_json)
+                dims["rag_evaluation"] = match_item.get("ragEvaluation")
+                mr.dimensions_json = dims
+        db.commit()
+
+    return matches
 

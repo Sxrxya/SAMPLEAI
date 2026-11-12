@@ -41,13 +41,18 @@ export const useSessionStore = create<SessionState>((set) => ({
     const user: UserSession =
       typeof userOrRole === "string"
         ? {
-            id: `demo-${userOrRole}`,
-            email: `${userOrRole}@tandem.test`,
+            id: userOrRole === "candidate" ? "3719aeb1-6440-4cac-9ba9-d6886299e024" : `demo-${userOrRole}`,
+            email:
+              userOrRole === "candidate"
+                ? "suriyaprakash444m@gmail.com"
+                : userOrRole === "recruiter"
+                ? "recruiter.northstar@example.com"
+                : "admin@tandem.test",
             display_name:
-              userOrRole === "recruiter"
-                ? "Demo Recruiter"
-                : userOrRole === "candidate"
-                ? "Demo Candidate"
+              userOrRole === "candidate"
+                ? "Suriyaprakash M"
+                : userOrRole === "recruiter"
+                ? "Northstar Technologies"
                 : "Demo Admin",
             role: userOrRole,
           }

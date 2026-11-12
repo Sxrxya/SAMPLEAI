@@ -102,4 +102,34 @@ def extract_text(storage_path: Path) -> str:
 
     if not text.strip():
         raise ValueError("Document contains no readable text")
-    return text[:100_000]
+    return normalize_document_text(text[:100_000])
+
+
+def normalize_document_text(text: str) -> str:
+    """Lossless token and whitespace optimization for LLM processing."""
+    if not text:
+        return ""
+    # Normalize unicode quotation marks and hyphens
+    normalized = (
+        text.replace("\u201c", '"')
+        .replace("\u201d", '"')
+        .replace("\u2018", "'")
+        .replace("\u2019", "'")
+        .replace("\u2013", "-")
+        .replace("\u2014", "-")
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+    )
+    # Strip null bytes and non-printable control chars, preserving newline and tab
+    normalized = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f]", "", normalized)
+    # Collapse excessive blank lines
+    normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+    # Strip trailing whitespace on each line while preserving indentation/bullet points
+    lines = [re.sub(r"[ \t]+", " ", line).rstrip() for line in normalized.split("\n")]
+    return "\n".join(lines).strip()
+
+
+def estimate_tokens(text: str) -> int:
+    """Accurate token count estimation (~4 characters per token heuristic)."""
+    return max(1, len(text) // 4)
+

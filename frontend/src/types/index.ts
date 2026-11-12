@@ -21,6 +21,30 @@ export type MatchResult = {
   skills: string[];
   missingSkills: string[];
   evidence: string[];
+  ragEvaluation?: {
+    candidate_name: string;
+    overall_match_score: number;
+    recommendation_verdict: "STRONG_HIRE" | "HIRE" | "CONSIDER" | "DO_NOT_RECOMMEND";
+    executive_summary: string;
+    parameter_scores: Record<
+      string,
+      {
+        score: number;
+        weight_pct: number;
+        findings?: string;
+        supporting_evidence?: string[];
+        identified_gaps?: string[];
+        mitigation_difficulty?: string;
+      }
+    >;
+    key_strengths?: string[];
+    potential_risks?: string[];
+    tailored_interview_questions?: {
+      topic: string;
+      question: string;
+      what_to_listen_for: string;
+    }[];
+  };
 };
 
 export type PortalRow = {
